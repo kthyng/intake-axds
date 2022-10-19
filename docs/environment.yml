@@ -1,0 +1,30 @@
+name: intake-axds_docs
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+   - python=3.9
+   # If your docs code examples depend on other packages add them here
+   - intake
+   - intake-xarray
+   - pandas
+   - requests
+   # These are needed for the docs themselves
+   - numpydoc
+   - sphinx
+   - sphinx-markdown-tables
+   - ipython
+   - jinja2
+   - nbconvert
+   - nbformat
+   - ipykernel
+   - pandoc
+   - pip
+   - recommonmark
+   - pip:
+     - docrep<=0.2.7
+     - furo
+     - nbsphinx>=0.8.7
+     - jupyter_client
+     - sphinx-copybutton
+     - sphinxcontrib-srclinks
