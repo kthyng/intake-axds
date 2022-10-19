@@ -1,11 +1,18 @@
+"""
+Set up a catalog for Axiom assets.
+"""
 
-from . import __version__
-from intake.source.csv import CSVSource
-from intake_xarray.netcdf import NetCDFSource
-from intake.catalog.base import Catalog
-from intake.catalog.local import LocalCatalogEntry
+
 import pandas as pd
 import requests
+
+from intake.catalog.base import Catalog
+from intake.catalog.local import LocalCatalogEntry
+from intake.source.csv import CSVSource
+from intake_xarray.netcdf import NetCDFSource
+
+from . import __version__
+
 
 search_headers = {"Accept": "application/json"}
 
@@ -16,10 +23,24 @@ class AXDSCatalog(Catalog):
 
     Have this cover all data types for now, then split out.
     """
-    name = 'axds_cat'
+
+    name = "axds_cat"
     version = __version__
 
-    def __init__(self, datatype, outtype='dataframe', kwargs_search=None, **kwargs):
+    def __init__(
+        self, datatype: str, outtype="dataframe", kwargs_search=None, **kwargs
+    ):
+        """Initialize an Axiom Catalog.
+
+        Parameters
+        ----------
+        datatype : str
+            Axiom data type. Currently only "platform2" but eventually also "layer_group".
+        outtype : str
+            Type of output. Probably will be "dataframe" or "xarray".
+        kwargs_search : dict, optional
+            Contains search information if desired. Keys include: "max_lon", "max_lat", "min_lon", "min_lat", "min_time", "max_time".
+        """
         self.datatype = datatype
         self.url_docs_base = "https://search.axds.co/v2/docs?verbose=true"
         self.kwargs_search = kwargs_search
@@ -44,7 +65,6 @@ class AXDSCatalog(Catalog):
         )
         url += f"{url_add_box}"
 
-
         # convert input datetime to seconds since 1970
         startDateTime = (
             pd.Timestamp(self.kwargs_search["min_time"]).tz_localize("UTC")
@@ -67,39 +87,51 @@ class AXDSCatalog(Catalog):
         for results in res["results"]:
             dataset_id = results["uuid"]
 
-            description = f'AXDS dataset_id {dataset_id} of datatype {self.datatype}'
+            description = f"AXDS dataset_id {dataset_id} of datatype {self.datatype}"
 
             # Find urlpath
-            if self.datatype == 'platform2':
+            if self.datatype == "platform2":
                 url = f"{self.url_docs_base}&id={dataset_id}"
                 res2 = requests.get(url, headers=search_headers).json()
-                if self.outtype == 'dataframe':
-                    urlpath = res2[0]['data']['resources']['files']['data.csv.gz']['url']
+                if self.outtype == "dataframe":
+                    urlpath = res2[0]["data"]["resources"]["files"]["data.csv.gz"][
+                        "url"
+                    ]
                     plugin = CSVSource  # 'csv'
-                elif self.outtype == 'xarray':
+                elif self.outtype == "xarray":
                     key = [
                         key
-                        for key in res2[0]['data']['resources']["files"].keys()
+                        for key in res2[0]["data"]["resources"]["files"].keys()
                         if ".nc" in key
                     ][0]
-                    urlpath = res2[0]['data']['resources']["files"][key]["url"]
+                    urlpath = res2[0]["data"]["resources"]["files"][key]["url"]
                     plugin = NetCDFSource  # 'netcdf'
-            elif self.datatype == 'layer_group':
+            elif self.datatype == "layer_group":
                 pass
 
             args = {
-                    # 'dataset_id': dataset_id,
-                    'urlpath': urlpath,
-                    }
+                # 'dataset_id': dataset_id,
+                "urlpath": urlpath,
+            }
 
-            entry = LocalCatalogEntry(dataset_id, description, plugin, True,
-                                    args, {}, {}, {}, "", getenv=False,
-                                    getshell=False)
+            entry = LocalCatalogEntry(
+                dataset_id,
+                description,
+                plugin,
+                True,
+                args,
+                {},
+                {},
+                {},
+                "",
+                getenv=False,
+                getshell=False,
+            )
             entry._metadata = {
                 # 'info_url': f"{self.url_docs_base}&id={dataset_id}",
-                'dataset_id': dataset_id,
-                }
+                "dataset_id": dataset_id,
+            }
             # entry._plugin = [AXDSSource]
             entry._plugin = [plugin]
-            
+
             self._entries[dataset_id] = entry
