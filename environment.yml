@@ -1,0 +1,13 @@
+name: intake-axds
+channels:
+  - conda-forge
+dependencies:
+  # Required for full project functionality (dont remove)
+  - pytest
+  # Examples (remove and add as needed)
+  - xarray
+  - numpy
+  - dask
+  - netcdf4
+  - pandas
+  - requests
