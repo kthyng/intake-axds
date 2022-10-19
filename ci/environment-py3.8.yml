@@ -4,12 +4,10 @@ channels:
 dependencies:
   - python=3.8
   ############## These will have to be adjusted to your specific project
-  - dask
-  - netcdf4
-  - numpy
+  - intake
+  - intake-xarray
   - pandas
   - requests
-  - xarray
   ##############
   - pytest
   - pip:

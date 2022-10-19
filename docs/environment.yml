@@ -5,12 +5,10 @@ channels:
 dependencies:
    - python=3.9
    # If your docs code examples depend on other packages add them here
-   - dask
-   - netcdf4
-   - numpy
+   - intake
+   - intake-xarray
    - pandas
    - requests
-   - xarray
    # These are needed for the docs themselves
    - numpydoc
    - sphinx

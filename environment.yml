@@ -5,9 +5,7 @@ dependencies:
   # Required for full project functionality (dont remove)
   - pytest
   # Examples (remove and add as needed)
-  - dask
-  - netcdf4
-  - numpy
+  - intake
+  - intake-xarray
   - pandas
   - requests
-  - xarray
