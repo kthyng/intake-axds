@@ -1,10 +1,12 @@
 intake-axds
 ==============================
-[![Build Status](https://github.com/axiom-data-science/intake-axds/workflows/Tests/badge.svg)](https://github.com/axiom-data-science/intake-axds/actions)
-[![codecov](https://codecov.io/gh/axiom-data-science/intake-axds/branch/main/graph/badge.svg)](https://codecov.io/gh/axiom-data-science/intake-axds)
-[![License:MIT](https://img.shields.io/badge/License-MIT-lightgray.svg?style=flt-square)](https://opensource.org/licenses/MIT)[![pypi](https://img.shields.io/pypi/v/intake-axds.svg)](https://pypi.org/project/intake-axds)
-<!-- [![conda-forge](https://img.shields.io/conda/dn/conda-forge/intake-axds?label=conda-forge)](https://anaconda.org/conda-forge/intake-axds) -->[![Documentation Status](https://readthedocs.org/projects/intake-axds/badge/?version=latest)](https://intake-axds.readthedocs.io/en/latest/?badge=latest)
-
+[![Build Status](https://img.shields.io/github/workflow/status/axiom-data-science/intake-axds/Tests?logo=github&style=for-the-badge)](https://github.com/axiom-data-science/intake-axds/actions)
+[![Code Coverage](https://img.shields.io/codecov/c/github/axiom-data-science/intake-axds.svg?style=for-the-badge)](https://codecov.io/gh/axiom-data-science/intake-axds)
+[![License:MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![Documentation Status](https://img.shields.io/readthedocs/intake-axds/latest.svg?style=for-the-badge)](https://intake-axds.readthedocs.io/en/latest/?badge=latest)
+[![Code Style Status](https://img.shields.io/github/workflow/status/axiom-data-science/intake-axds/linting%20with%20pre-commit?label=Code%20Style&style=for-the-badge)](https://github.com/axiom-data-science/intake-axds/actions)
+[![Conda Version](https://img.shields.io/conda/vn/conda-forge/intake-axds.svg?style=for-the-badge)](https://anaconda.org/conda-forge/intake-axds)
+[![Python Package Index](https://img.shields.io/pypi/v/intake-axds.svg?style=for-the-badge)](https://pypi.org/project/intake-axds)
 
 Intake interface to Axiom assets
 
