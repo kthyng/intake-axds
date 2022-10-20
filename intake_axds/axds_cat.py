@@ -28,7 +28,11 @@ class AXDSCatalog(Catalog):
     version = __version__
 
     def __init__(
-        self, datatype: str, outtype="dataframe", kwargs_search=None, **kwargs
+        self,
+        datatype: str,
+        outtype: str = "dataframe",
+        kwargs_search: dict = None,
+        **kwargs,
     ):
         """Initialize an Axiom Catalog.
 
