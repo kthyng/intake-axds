@@ -1,7 +1,8 @@
 """Utils to run."""
 
-import cf_pandas as cfp
 from typing import Optional, Tuple
+
+import cf_pandas as cfp
 import requests
 
 
@@ -22,15 +23,15 @@ def return_parameter_options() -> Tuple:
         Column "Category" contains all options for selected category on server. Column "URL" contains
         the link for search results for searching for a given category value.
     """
-    
+
     # find parameterName options for AXDS. These are a superset of standard_names
-    resp = requests.get('http://oikos.axds.co/rest/context')
+    resp = requests.get("http://oikos.axds.co/rest/context")
     resp.raise_for_status()
     data = resp.json()
-    params = data['parameters']
+    params = data["parameters"]
     names = [i["parameterName"] for i in params]
-    group_params = data['parameterGroups']
-    
+    group_params = data["parameterGroups"]
+
     return params, names, group_params
 
 
@@ -39,7 +40,7 @@ def match_key_to_parameter(
     criteria: Optional[dict] = None,
 ) -> list:
     """Find Parameter Group values that match key_to_match.
-    
+
     Currently only first value used.
 
     Parameters
@@ -56,7 +57,7 @@ def match_key_to_parameter(
     list
         Parameter Group values that match key, according to the custom criteria.
     """
-    
+
     params, names, group_params = return_parameter_options()
 
     # select parameterName that matches selected key
@@ -68,5 +69,5 @@ def match_key_to_parameter(
 
     # find parametergroup label to match id
     pglabels = [i["label"] for i in group_params if i["id"] == pgid]
-    
+
     return pglabels

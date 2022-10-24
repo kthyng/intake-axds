@@ -4,6 +4,7 @@ Set up a catalog for Axiom assets.
 
 
 from typing import Dict, Optional, Union
+
 import pandas as pd
 import requests
 
@@ -11,9 +12,9 @@ from intake.catalog.base import Catalog
 from intake.catalog.local import LocalCatalogEntry
 from intake.source.csv import CSVSource
 from intake_xarray.netcdf import NetCDFSource
-from .utils import match_key_to_parameter
 
 from . import __version__
+from .utils import match_key_to_parameter
 
 
 search_headers = {"Accept": "application/json"}
@@ -74,7 +75,6 @@ class AXDSCatalog(Catalog):
             self.pglabel = match_key_to_parameter(keys_to_match)[0]
         else:
             self.pglabel = None
-            
 
         super(AXDSCatalog, self).__init__(**kwargs)
 
