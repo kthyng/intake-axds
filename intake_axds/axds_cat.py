@@ -3,6 +3,8 @@ Set up a catalog for Axiom assets.
 """
 
 
+from typing import Dict, Optional, Union
+
 import pandas as pd
 import requests
 
@@ -12,6 +14,7 @@ from intake.source.csv import CSVSource
 from intake_xarray.netcdf import NetCDFSource
 
 from . import __version__
+from .utils import match_key_to_parameter
 
 
 search_headers = {"Accept": "application/json"}
@@ -31,7 +34,8 @@ class AXDSCatalog(Catalog):
         self,
         datatype: str,
         outtype: str = "dataframe",
-        kwargs_search: dict = None,
+        keys_to_match: Optional[str] = None,
+        kwargs_search: Optional[Dict[str, Union[str, int, float]]] = None,
         **kwargs,
     ):
         """Initialize an Axiom Catalog.
@@ -42,6 +46,8 @@ class AXDSCatalog(Catalog):
             Axiom data type. Currently only "platform2" but eventually also "layer_group".
         outtype : str
             Type of output. Probably will be "dataframe" or "xarray".
+        keys_to_match : str, optional
+            Name of key to match with system-available variable parameterNames using criteria. Currently only 1 at a time.
         kwargs_search : dict, optional
             Contains search information if desired. Keys include: "max_lon", "max_lat", "min_lon", "min_lat", "min_time", "max_time".
         """
@@ -49,6 +55,27 @@ class AXDSCatalog(Catalog):
         self.url_docs_base = "https://search.axds.co/v2/docs?verbose=true"
         self.kwargs_search = kwargs_search
         self.outtype = outtype
+        self.search_url = None
+
+        if kwargs_search is not None:
+            checks = [
+                ["min_lon", "max_lon", "min_lat", "max_lat"],
+                ["min_time", "max_time"],
+            ]
+            for check in checks:
+                if any(key in kwargs_search for key in check) and not all(
+                    key in kwargs_search for key in check
+                ):
+                    raise ValueError(
+                        f"If any of {check} are input, they all must be input."
+                    )
+
+        if keys_to_match is not None:
+            # Currently just take first match, but there could be more than one.
+            self.pglabel = match_key_to_parameter(keys_to_match)[0]
+        else:
+            self.pglabel = None
+
         super(AXDSCatalog, self).__init__(**kwargs)
 
     def _load(self):
@@ -60,31 +87,40 @@ class AXDSCatalog(Catalog):
 
         url = f"{self.url_search_base}&type={self.datatype}"
 
-        url_add_box = (
-            f'&geom={{"type":"Polygon","coordinates":[[[{self.kwargs_search["min_lon"]},{self.kwargs_search["min_lat"]}],'
-            + f'[{self.kwargs_search["max_lon"]},{self.kwargs_search["min_lat"]}],'
-            + f'[{self.kwargs_search["max_lon"]},{self.kwargs_search["max_lat"]}],'
-            + f'[{self.kwargs_search["min_lon"]},{self.kwargs_search["max_lat"]}],'
-            + f'[{self.kwargs_search["min_lon"]},{self.kwargs_search["min_lat"]}]]]}}'
-        )
-        url += f"{url_add_box}"
+        if self.kwargs_search.keys() >= {"max_lon", "min_lon", "min_lat", "max_lat"}:
+            url_add_box = (
+                f'&geom={{"type":"Polygon","coordinates":[[[{self.kwargs_search["min_lon"]},{self.kwargs_search["min_lat"]}],'
+                + f'[{self.kwargs_search["max_lon"]},{self.kwargs_search["min_lat"]}],'
+                + f'[{self.kwargs_search["max_lon"]},{self.kwargs_search["max_lat"]}],'
+                + f'[{self.kwargs_search["min_lon"]},{self.kwargs_search["max_lat"]}],'
+                + f'[{self.kwargs_search["min_lon"]},{self.kwargs_search["min_lat"]}]]]}}'
+            )
+            url += f"{url_add_box}"
 
-        # convert input datetime to seconds since 1970
-        startDateTime = (
-            pd.Timestamp(self.kwargs_search["min_time"]).tz_localize("UTC")
-            - pd.Timestamp("1970-01-01 00:00").tz_localize("UTC")
-        ) // pd.Timedelta("1s")
-        endDateTime = (
-            pd.Timestamp(self.kwargs_search["max_time"]).tz_localize("UTC")
-            - pd.Timestamp("1970-01-01 00:00").tz_localize("UTC")
-        ) // pd.Timedelta("1s")
+        if self.kwargs_search.keys() >= {"max_time", "min_time"}:
+            # convert input datetime to seconds since 1970
+            startDateTime = (
+                pd.Timestamp(self.kwargs_search["min_time"]).tz_localize("UTC")
+                - pd.Timestamp("1970-01-01 00:00").tz_localize("UTC")
+            ) // pd.Timedelta("1s")
+            endDateTime = (
+                pd.Timestamp(self.kwargs_search["max_time"]).tz_localize("UTC")
+                - pd.Timestamp("1970-01-01 00:00").tz_localize("UTC")
+            ) // pd.Timedelta("1s")
 
-        # search by time
-        url_add_time = f"&startDateTime={startDateTime}&endDateTime={endDateTime}"
+            # search by time
+            url_add_time = f"&startDateTime={startDateTime}&endDateTime={endDateTime}"
 
-        url += f"{url_add_time}"
+            url += f"{url_add_time}"
+
+        if self.pglabel is not None:
+
+            # search by variable
+            url += f"&tag=Parameter+Group:{self.pglabel}"
 
         res = requests.get(url, headers=search_headers).json()
+
+        self.search_url = url
 
         self._entries = {}
 
