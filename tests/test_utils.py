@@ -11,7 +11,7 @@ def test_get_project_version():
     assert version is not None
 
 
-class test_helper(object):
+class FakeResponseParams(object):
     def __init__(self):
         pass
 
@@ -51,7 +51,7 @@ class test_helper(object):
 def test_parameters(mock_requests):
     """Basic tests of return_parameter_options."""
 
-    mock_requests.return_value = test_helper()
+    mock_requests.return_value = FakeResponseParams()
 
     output = utils.return_parameter_options()
     assert isinstance(output, dict)
@@ -63,7 +63,7 @@ def test_parameters(mock_requests):
 def test_parameters_and_key(mock_requests):
     """match a key"""
 
-    mock_requests.return_value = test_helper()
+    mock_requests.return_value = FakeResponseParams()
 
     criteria = {
         "wind": {

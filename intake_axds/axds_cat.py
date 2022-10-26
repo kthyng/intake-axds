@@ -35,7 +35,8 @@ class AXDSCatalog(Catalog):
         datatype: str,
         outtype: str = "dataframe",
         keys_to_match: Optional[str] = None,
-        kwargs_search: Optional[Dict[str, Union[str, int, float]]] = None,
+        kwargs_search: Dict[str, Union[str, int, float]] = None,
+        page_size: int = 10,
         **kwargs,
     ):
         """Initialize an Axiom Catalog.
@@ -50,10 +51,12 @@ class AXDSCatalog(Catalog):
             Name of key to match with system-available variable parameterNames using criteria. Currently only 1 at a time.
         kwargs_search : dict, optional
             Contains search information if desired. Keys include: "max_lon", "max_lat", "min_lon", "min_lat", "min_time", "max_time".
+        page_size : int, optional
+            Number of results. Default is 1000 but fewer is faster.
         """
         self.datatype = datatype
         self.url_docs_base = "https://search.axds.co/v2/docs?verbose=true"
-        self.kwargs_search = kwargs_search
+        self.page_size = page_size
         self.outtype = outtype
         self.search_url = None
 
@@ -69,6 +72,9 @@ class AXDSCatalog(Catalog):
                     raise ValueError(
                         f"If any of {check} are input, they all must be input."
                     )
+        else:
+            kwargs_search = {}
+        self.kwargs_search = kwargs_search
 
         if keys_to_match is not None:
             # Currently just take first match, but there could be more than one.
@@ -81,9 +87,7 @@ class AXDSCatalog(Catalog):
     def _load(self):
         """Find all dataset ids and create catalog."""
 
-        # from intake_axds import AXDSSource#, ERDDAPSourceAutoPartition
-
-        self.url_search_base = "https://search.axds.co/v2/search?portalId=-1&page=1&pageSize=10000&verbose=true"
+        self.url_search_base = f"https://search.axds.co/v2/search?portalId=-1&page=1&pageSize={self.page_size}&verbose=true"
 
         url = f"{self.url_search_base}&type={self.datatype}"
 
@@ -168,7 +172,7 @@ class AXDSCatalog(Catalog):
                 getshell=False,
             )
             entry._metadata = {
-                # 'info_url': f"{self.url_docs_base}&id={dataset_id}",
+                "info_url": f"{self.url_docs_base}&id={dataset_id}",
                 "dataset_id": dataset_id,
             }
             # entry._plugin = [AXDSSource]
