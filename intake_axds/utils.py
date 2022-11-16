@@ -7,6 +7,7 @@ import requests
 
 from pkg_resources import DistributionNotFound, get_distribution
 
+
 search_headers = {"Accept": "application/json"}
 
 
