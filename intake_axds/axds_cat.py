@@ -268,17 +268,19 @@ class AXDSCatalog(Catalog):
             }
 
             entry = LocalCatalogEntry(
-                dataset_id,
-                description,
-                plugin,
-                True,
-                args,
-                {},
-                {},
-                {},
-                "",
-                getenv=False,
-                getshell=False,
+                name=dataset_id,
+                description=description,
+                driver=plugin,
+                args=args,
+                metadata={},
+                # True,
+                # args,
+                # {},
+                # {},
+                # {},
+                # "",
+                # getenv=False,
+                # getshell=False,
             )
             entry._metadata = {
                 # "info_url": f"{self.url_docs_base}&id={dataset_id}",
