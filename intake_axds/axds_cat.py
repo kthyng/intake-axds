@@ -162,44 +162,8 @@ class AXDSCatalog(Catalog):
     def _load(self):
         """Find all dataset ids and create catalog."""
 
-        self.url_search_base = f"https://search.axds.co/v2/search?portalId=-1&page=1&pageSize={self.page_size}&verbose=true"
-
-        url = f"{self.url_search_base}&type={self.datatype}"
-
-        if self.kwargs_search.keys() >= {"max_lon", "min_lon", "min_lat", "max_lat"}:
-            url_add_box = (
-                f'&geom={{"type":"Polygon","coordinates":[[[{self.kwargs_search["min_lon"]},{self.kwargs_search["min_lat"]}],'
-                + f'[{self.kwargs_search["max_lon"]},{self.kwargs_search["min_lat"]}],'
-                + f'[{self.kwargs_search["max_lon"]},{self.kwargs_search["max_lat"]}],'
-                + f'[{self.kwargs_search["min_lon"]},{self.kwargs_search["max_lat"]}],'
-                + f'[{self.kwargs_search["min_lon"]},{self.kwargs_search["min_lat"]}]]]}}'
-            )
-            url += f"{url_add_box}"
-
-        if self.kwargs_search.keys() >= {"max_time", "min_time"}:
-            # convert input datetime to seconds since 1970
-            startDateTime = (
-                pd.Timestamp(self.kwargs_search["min_time"]).tz_localize("UTC")
-                - pd.Timestamp("1970-01-01 00:00").tz_localize("UTC")
-            ) // pd.Timedelta("1s")
-            endDateTime = (
-                pd.Timestamp(self.kwargs_search["max_time"]).tz_localize("UTC")
-                - pd.Timestamp("1970-01-01 00:00").tz_localize("UTC")
-            ) // pd.Timedelta("1s")
-
-            # search by time
-            url_add_time = f"&startDateTime={startDateTime}&endDateTime={endDateTime}"
-
-            url += f"{url_add_time}"
-
-        if self.pglabel is not None:
-
-            # search by variable
-            url += f"&tag=Parameter+Group:{self.pglabel}"
-
-        self.search_url = url
         res = requests.get(self.search_url, headers=search_headers).json()
-        # import pdb; pdb.set_trace()
+
         if "results" not in res:
             raise ValueError("No results were returned for the search.")
 
