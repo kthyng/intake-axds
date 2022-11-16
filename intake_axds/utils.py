@@ -8,6 +8,9 @@ import requests
 from pkg_resources import DistributionNotFound, get_distribution
 
 
+search_headers = {"Accept": "application/json"}
+
+
 def _get_version() -> str:
     """Fixes circular import issues."""
     try:
@@ -95,3 +98,11 @@ def match_key_to_parameter(
     pglabels = [i["label"] for i in group_params if i["id"] == pgid]
 
     return pglabels
+
+
+def return_docs_response(dataset_id: str) -> dict:
+    """Return request response to docs url in json."""
+
+    url_docs_base = "https://search.axds.co/v2/docs?verbose=true"
+    url = f"{url_docs_base}&id={dataset_id}"
+    return requests.get(url, headers=search_headers).json()[0]
