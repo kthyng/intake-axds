@@ -1,41 +1,59 @@
 """Utils to run."""
 
-from typing import Optional, Tuple
+from typing import Optional
 
 import cf_pandas as cfp
 import requests
 
+from pkg_resources import DistributionNotFound, get_distribution
 
 search_headers = {"Accept": "application/json"}
 
 
-def return_parameter_options() -> Tuple:
-    """Find category options for ERDDAP server.
+def _get_version() -> str:
+    """Fixes circular import issues."""
+    try:
+        __version__ = get_distribution("intake-axds").version
+    except DistributionNotFound:
+        # package is not installed
+        __version__ = "unknown"
 
-    Parameters
-    ----------
-    server : str
-        ERDDAP server address, for example: "https://erddap.sensors.ioos.us/erddap"
-    category : str, optional
-        ERDDAP category for filtering results. Default is "standard_name" but another good option is
-        "variableName".
+    return __version__
+
+
+def return_parameter_options() -> dict:
+    """Find parameters for Axiom assets.
 
     Returns
     -------
-    DataFrame
-        Column "Category" contains all options for selected category on server. Column "URL" contains
-        the link for search results for searching for a given category value.
+    List
+        Contains the parameter information for Axiom assets.
+
+    Examples
+    --------
+    >>> return_parameter_options()
+    [{'id': 4,
+    'label': 'Relative Humidity',
+    'urn': 'http://mmisw.org/ont/cf/parameter/relative_humidity',
+    'ratio': False,
+    'sanityMin': 0.0,
+    'sanityMax': 110.0,
+    'parameterGroupDefault': True,
+    'configJson': None,
+    'stageConfigJson': None,
+    'idSanityUnit': 1,
+    'idParameterGroup': 22,
+    'idParameterType': 101,
+    'parameterName': 'relative_humidity'},
+    ...
     """
 
-    # find parameterName options for AXDS. These are a superset of standard_names
     resp = requests.get("http://oikos.axds.co/rest/context")
-    resp.raise_for_status()
-    data = resp.json()
-    params = data["parameters"]
-    names = [i["parameterName"] for i in params]
-    group_params = data["parameterGroups"]
+    # resp.raise_for_status()
+    output = resp.json()
+    # params = data["parameters"]
 
-    return params, names, group_params
+    return output
 
 
 def match_key_to_parameter(
@@ -61,7 +79,12 @@ def match_key_to_parameter(
         Parameter Group values that match key, according to the custom criteria.
     """
 
-    params, names, group_params = return_parameter_options()
+    resp = return_parameter_options()
+    params = resp["parameters"]
+
+    # find parameterName options for AXDS. These are a superset of standard_names
+    names = [i["parameterName"] for i in params]
+    group_params = resp["parameterGroups"]
 
     # select parameterName that matches selected key
     var = cfp.match_criteria_key(names, key_to_match, criteria)

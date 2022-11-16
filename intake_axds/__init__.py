@@ -2,14 +2,12 @@
 intake-axds: Intake approach for Axiom assets.
 """
 
-from pkg_resources import DistributionNotFound, get_distribution
-
-
 # from .axds_cat import AXDSCatalog
+from .utils import (  # noqa: F401
+    _get_version,
+    match_key_to_parameter,
+    return_parameter_options,
+)
 
 
-try:
-    __version__ = get_distribution("intake-axds").version
-except DistributionNotFound:
-    # package is not installed
-    __version__ = "unknown"
+__version__ = _get_version()

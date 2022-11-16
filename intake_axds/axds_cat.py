@@ -89,6 +89,9 @@ class AXDSCatalog(Catalog):
                     raise ValueError(
                         f"If any of {check} are input, they all must be input."
                     )
+        else:
+            kwargs_search = {}
+        self.kwargs_search = kwargs_search
 
         if keys_to_match is not None:
             # Currently just take first match, but there could be more than one.
@@ -159,9 +162,7 @@ class AXDSCatalog(Catalog):
     def _load(self):
         """Find all dataset ids and create catalog."""
 
-        # from intake_axds import AXDSSource#, ERDDAPSourceAutoPartition
-
-        self.url_search_base = "https://search.axds.co/v2/search?portalId=-1&page=1&pageSize=10000&verbose=true"
+        self.url_search_base = f"https://search.axds.co/v2/search?portalId=-1&page=1&pageSize={self.page_size}&verbose=true"
 
         url = f"{self.url_search_base}&type={self.datatype}"
 
