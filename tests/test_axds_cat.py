@@ -106,6 +106,8 @@ def test_axds_catalog_platform_search_variable(mock_requests):
 
 
 def test_invalid_kwarg_search():
+
+    # missing min_lat
     kw = {
         "min_lon": -180,
         "max_lon": -156,
@@ -113,15 +115,27 @@ def test_invalid_kwarg_search():
         "min_time": "2021-4-1",
         "max_time": "2021-4-2",
     }
-
     with pytest.raises(ValueError):
         AXDSCatalog(datatype="platform2", outtype="dataframe", kwargs_search=kw)
 
+    # missing min_time
     kw = {
         "min_lon": -180,
         "max_lon": -156,
         "min_lat": 50,
         "max_lat": 66,
+        "max_time": "2021-4-2",
+    }
+    with pytest.raises(ValueError):
+        AXDSCatalog(datatype="platform2", outtype="dataframe", kwargs_search=kw)
+
+    # min_lon less than -180
+    kw = {
+        "min_lon": -185,
+        "max_lon": -156,
+        "min_lat": 50,
+        "max_lat": 66,
+        "min_time": "2021-4-1",
         "max_time": "2021-4-2",
     }
 

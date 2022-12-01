@@ -55,7 +55,7 @@ class AXDSCatalog(Catalog):
         keys_to_match : str, optional
             Name of key to match with system-available variable parameterNames using criteria. Currently only 1 at a time.
         kwargs_search : dict, optional
-            Contains search information if desired. Keys include: "max_lon", "max_lat", "min_lon", "min_lat", "min_time", "max_time".
+            Contains search information if desired. Keys include: "max_lon", "max_lat", "min_lon", "min_lat", "min_time", "max_time". Longitude values should be in the range -180 to 180, which is the standard for the Axiom system.
         page_size : int, optional
             Number of results. Default is 1000 but fewer is faster.
         verbose : bool, optional
@@ -97,6 +97,8 @@ class AXDSCatalog(Catalog):
                     raise ValueError(
                         f"If any of {check} are input, they all must be input."
                     )
+            if abs(kwargs_search["min_lon"]) > 180 or abs(kwargs_search["max_lon"]) > 180:
+                raise ValueError("`min_lon` and `max_lon` must be in the range -180 to 180.")
         else:
             kwargs_search = {}
         self.kwargs_search = kwargs_search
