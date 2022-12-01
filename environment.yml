@@ -7,10 +7,10 @@ dependencies:
   # Examples (remove and add as needed)
   - aiohttp
   - h5netcdf
-  - intake
   - intake-xarray
   - pandas
   - pip
   - requests
   - pip:
     - cf-pandas
+    - git+https://github.com/intake/intake

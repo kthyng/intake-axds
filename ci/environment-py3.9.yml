@@ -4,7 +4,6 @@ channels:
 dependencies:
   - python=3.9
   ############## These will have to be adjusted to your specific project
-  - intake
   - intake-xarray
   - pandas
   - requests
@@ -15,3 +14,4 @@ dependencies:
     - codecov
     - pytest-cov
     - coverage[toml]
+    - git+https://github.com/intake/intake

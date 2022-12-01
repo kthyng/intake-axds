@@ -5,7 +5,6 @@ channels:
 dependencies:
    - python=3.9
    # If your docs code examples depend on other packages add them here
-   - intake
    - intake-xarray
    - pandas
    - requests
@@ -23,6 +22,7 @@ dependencies:
    - pip
    - recommonmark
    - pip:
+     - git+https://github.com/intake/intake
      - cf-pandas
      - docrep<=0.2.7
      - furo
