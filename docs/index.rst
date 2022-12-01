@@ -10,6 +10,7 @@ Welcome to intake-axds's documentation!
 .. toctree::
    :maxdepth: 2
 
+   demo_overview.md
    api
    GitHub repository <https://github.com/axiom-data-science/intake-axds>
 

@@ -49,7 +49,7 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
-    "nbsphinx",
+    # "nbsphinx",
     "recommonmark",
     "sphinx.ext.mathjax",
     "sphinx.ext.autosummary",
@@ -61,7 +61,14 @@ extensions = [
     "IPython.sphinxext.ipython_console_highlighting",
     "sphinxcontrib.srclinks",
     "sphinx_markdown_tables",
+    "myst_nb",
 ]
+
+# for compiling notebooks with mystnb
+# https://docs.readthedocs.io/en/stable/guides/jupyter.html#using-notebooks-in-other-formats
+nb_custom_formats = {
+    ".md": ["jupytext.reads", {"fmt": "mystnb"}],
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
