@@ -36,6 +36,7 @@ class AXDSCatalog(Catalog):
         outtype: str = "dataframe",
         keys_to_match: Optional[str] = None,
         kwargs_search: Optional[Dict[str, Union[str, int, float]]] = None,
+        catalog_name: Optional[str] = None,
         page_size: int = 10,
         verbose: bool = False,
         **kwargs,
@@ -63,6 +64,7 @@ class AXDSCatalog(Catalog):
             Time to live. How long before force-reloading catalog. Set to None to not do this.
         """
 
+        name = catalog_name if catalog_name is not None else "catalog"
         self.datatype = datatype
         self.url_docs_base = "https://search.axds.co/v2/docs?verbose=true"
         self.kwargs_search = kwargs_search
@@ -99,7 +101,7 @@ class AXDSCatalog(Catalog):
         else:
             self.pglabel = None
 
-        super(AXDSCatalog, self).__init__(**kwargs)
+        super(AXDSCatalog, self).__init__(**kwargs, name=name)
 
     @property
     def search_url(self):
@@ -271,6 +273,7 @@ class AXDSCatalog(Catalog):
                 name=dataset_id,
                 description=description,
                 driver=plugin,
+                direct_access="allow",
                 args=args,
                 metadata={},
                 # True,
@@ -282,10 +285,10 @@ class AXDSCatalog(Catalog):
                 # getenv=False,
                 # getshell=False,
             )
-            entry._metadata = {
-                # "info_url": f"{self.url_docs_base}&id={dataset_id}",
-                "dataset_id": dataset_id,
-            }
+            # entry._metadata = {
+            #     # "info_url": f"{self.url_docs_base}&id={dataset_id}",
+            #     "dataset_id": dataset_id,
+            # }
             # entry._plugin = [AXDSSource]
             entry._plugin = [plugin]
 
