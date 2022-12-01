@@ -32,7 +32,7 @@ class AXDSCatalog(Catalog):
 
     def __init__(
         self,
-        datatype: str,
+        datatype: str = "platform2",
         outtype: str = "dataframe",
         keys_to_match: Optional[str] = None,
         kwargs_search: Optional[Dict[str, Union[str, int, float]]] = None,
@@ -178,25 +178,25 @@ class AXDSCatalog(Catalog):
         for results in res["results"]:
             dataset_id = results["uuid"]
 
-            # quick check if OPENDAP is in the access methods for this uuid, otherwise move on
-            if self.datatype == "module":
-                # if opendap is not in the access methods at the module level, then we assume it
-                # also isn't at the layer_group level, so we will not check each layer_group
-                if "OPENDAP" not in results["data"]["access_methods"]:
-                    if self.verbose:
-                        print(
-                            f"Cannot access module {dataset_id} via opendap so no source is being made for it.",
-                            UserWarning,
-                        )
-                    # warnings.warn(f"Cannot access module {dataset_id} via opendap so no source is being made for it.", UserWarning)
-                    continue
-                if "DEPRECATED" in results["data"]["label"]:
-                    if self.verbose:
-                        print(
-                            f"Skipping module {dataset_id} because label says it is deprecated.",
-                            UserWarning,
-                        )
-                    continue
+            # # quick check if OPENDAP is in the access methods for this uuid, otherwise move on
+            # if self.datatype == "module":
+            #     # if opendap is not in the access methods at the module level, then we assume it
+            #     # also isn't at the layer_group level, so we will not check each layer_group
+            #     if "OPENDAP" not in results["data"]["access_methods"]:
+            #         if self.verbose:
+            #             print(
+            #                 f"Cannot access module {dataset_id} via opendap so no source is being made for it.",
+            #                 UserWarning,
+            #             )
+            #         # warnings.warn(f"Cannot access module {dataset_id} via opendap so no source is being made for it.", UserWarning)
+            #         continue
+            #     if "DEPRECATED" in results["data"]["label"]:
+            #         if self.verbose:
+            #             print(
+            #                 f"Skipping module {dataset_id} because label says it is deprecated.",
+            #                 UserWarning,
+            #             )
+            #         continue
 
             # if dataset_id == "e30cffbb-d872-4c09-b258-1dcd50aa1d1e":
             #     import pdb; pdb.set_trace()
@@ -218,52 +218,52 @@ class AXDSCatalog(Catalog):
                     ][0]
                     urlpath = docs["data"]["resources"]["files"][key]["url"]
                     plugin = NetCDFSource  # 'netcdf'
-            elif self.datatype == "module":
-                plugin = NetCDFSource  # 'netcdf'
+            # elif self.datatype == "module":
+            #     plugin = NetCDFSource  # 'netcdf'
 
-                # modules are the umbrella and contain 1 or more layer_groups
-                # pull out associated layer groups uuids to make sure to capture them
-                layer_group_uuids = list(docs["data"]["layer_group_info"].keys())
+            #     # modules are the umbrella and contain 1 or more layer_groups
+            #     # pull out associated layer groups uuids to make sure to capture them
+            #     layer_group_uuids = list(docs["data"]["layer_group_info"].keys())
 
-                # pull up docs for each layer_group to get urlpath
-                # can only get a urlpath if it is available on opendap
-                urlpaths = []  # using this to see if there are ever multiple urlpaths
-                for layer_group_uuid in layer_group_uuids:
-                    docs_lg = return_docs_response(layer_group_uuid)
+            #     # pull up docs for each layer_group to get urlpath
+            #     # can only get a urlpath if it is available on opendap
+            #     urlpaths = []  # using this to see if there are ever multiple urlpaths
+            #     for layer_group_uuid in layer_group_uuids:
+            #         docs_lg = return_docs_response(layer_group_uuid)
 
-                    if "OPENDAP" in docs_lg["data"]["access_methods"]:
-                        urlpath = docs_lg["source"]["layers"][0][
-                            "thredds_opendap_url"
-                        ].removesuffix(".html")
-                        urlpaths.append(urlpath)
+            #         if "OPENDAP" in docs_lg["data"]["access_methods"]:
+            #             urlpath = docs_lg["source"]["layers"][0][
+            #                 "thredds_opendap_url"
+            #             ].removesuffix(".html")
+            #             urlpaths.append(urlpath)
 
-                # only want unique urlpaths
-                urlpaths = list(set(urlpaths))
-                if len(urlpaths) > 1:
-                    if self.verbose:
-                        print(
-                            f"Several urlpaths were found for module {dataset_id} so no source is being made for it."
-                        )
-                    # warnings.warn(f"Several urlpaths were found for module {dataset_id} so no source is being made for it.", UserWarning)
-                    continue
-                    # raise ValueError(f"the layer_groups for module {dataset_id} have different urlpaths.")
-                elif len(urlpaths) == 0:
-                    if self.verbose:
-                        print(
-                            f"No urlpath was found for module {dataset_id} so no source is being made for it."
-                        )
-                    # warnings.warn(f"No urlpath was found for module {dataset_id} so no source is being made for it.", UserWarning)
-                    continue
-                else:
-                    urlpath = urlpaths[0]
-                # import pdb; pdb.set_trace()
+            #     # only want unique urlpaths
+            #     urlpaths = list(set(urlpaths))
+            #     if len(urlpaths) > 1:
+            #         if self.verbose:
+            #             print(
+            #                 f"Several urlpaths were found for module {dataset_id} so no source is being made for it."
+            #             )
+            #         # warnings.warn(f"Several urlpaths were found for module {dataset_id} so no source is being made for it.", UserWarning)
+            #         continue
+            #         # raise ValueError(f"the layer_groups for module {dataset_id} have different urlpaths.")
+            #     elif len(urlpaths) == 0:
+            #         if self.verbose:
+            #             print(
+            #                 f"No urlpath was found for module {dataset_id} so no source is being made for it."
+            #             )
+            #         # warnings.warn(f"No urlpath was found for module {dataset_id} so no source is being made for it.", UserWarning)
+            #         continue
+            #     else:
+            #         urlpath = urlpaths[0]
+            #     # import pdb; pdb.set_trace()
 
-                # # gather metadata — this is at the module level. Is it different by layer_group?
-                # max_lat, min_lat = results["data"]["max_lat"], results["data"]["min_lat"]
-                # max_lng, min_lng = results["data"]["max_lng"], results["data"]["min_lng"]
-                # slug = results["data"]["model"]["slug"]
-                # start_time, end_time = results["data"]["start_time_utc"], results["data"]["end_time_utc"]
-                # # there are description and label too but are they the same for module and layer_group?
+            #     # # gather metadata — this is at the module level. Is it different by layer_group?
+            #     # max_lat, min_lat = results["data"]["max_lat"], results["data"]["min_lat"]
+            #     # max_lng, min_lng = results["data"]["max_lng"], results["data"]["min_lng"]
+            #     # slug = results["data"]["model"]["slug"]
+            #     # start_time, end_time = results["data"]["start_time_utc"], results["data"]["end_time_utc"]
+            #     # # there are description and label too but are they the same for module and layer_group?
 
             args = {
                 # 'dataset_id': dataset_id,

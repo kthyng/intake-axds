@@ -127,3 +127,24 @@ def test_invalid_kwarg_search():
 
     with pytest.raises(ValueError):
         AXDSCatalog(datatype="platform2", outtype="dataframe", kwargs_search=kw)
+
+
+def test_module_with_dataframe():
+    with pytest.raises(ValueError):
+        AXDSCatalog(datatype="module", outtype="dataframe")
+
+
+@mock.patch("requests.get")
+def test_verbose(mock_requests, capfd):
+    mock_requests.side_effect = [FakeResponseSearch(), FakeResponseMeta()]
+
+    AXDSCatalog(datatype="platform2", outtype="dataframe", verbose=True)
+
+    out, err = capfd.readouterr()
+    assert len(out) > 0
+
+
+@mock.patch("requests.get")
+def test_no_results(mock_requests):
+    with pytest.raises(ValueError):
+        AXDSCatalog(datatype="platform2", outtype="dataframe")
