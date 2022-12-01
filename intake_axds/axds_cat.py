@@ -36,9 +36,11 @@ class AXDSCatalog(Catalog):
         outtype: str = "dataframe",
         keys_to_match: Optional[str] = None,
         kwargs_search: Optional[Dict[str, Union[str, int, float]]] = None,
-        catalog_name: Optional[str] = None,
         page_size: int = 10,
         verbose: bool = False,
+        name: str = "catalog",
+        description: str = "Catalog of Axiom assets.",
+        metadata: Optional[Dict[str, Union[str, int, float]]] = None,
         ttl: Optional[int] = None,
         **kwargs,
     ):
@@ -59,13 +61,20 @@ class AXDSCatalog(Catalog):
         verbose : bool, optional
             Set to True for helpful information.
         ttl : int, optional
-            Time to live. How long before force-reloading catalog. Set to None to not do this.
-
-        kwargs: Other input arguments are passed to the intake Catalog class
+            Time to live for catalog. How long before force-reloading catalog. Set to None to not do this.
+        name : str, optional
+            Name for catalog.
+        description : str, optional
+            Description for catalog.
+        metadata : dict, optional
+            Metadata for catalog.
+        kwargs: 
+            Other input arguments are passed to the intake Catalog class. They can include:
+            
+            * description
         HAVE TO PUT CATALOG STUFF INTO KWARGS INCLUDING METADATA AND DESCRIPTION
         """
 
-        name = catalog_name if catalog_name is not None else "catalog"
         self.datatype = datatype
         self.url_docs_base = "https://search.axds.co/v2/docs?verbose=true"
         self.kwargs_search = kwargs_search
@@ -76,7 +85,7 @@ class AXDSCatalog(Catalog):
             raise ValueError(
                 "modules cannot be exported as dataframes since they are gridded data."
             )
-        self.datatype = datatype
+        # self.datatype = datatype
 
         self.outtype = outtype
 
@@ -101,8 +110,22 @@ class AXDSCatalog(Catalog):
             self.pglabel = match_key_to_parameter(keys_to_match)[0]
         else:
             self.pglabel = None
+        
+        # Put together catalog-level stuff
+        if metadata is None:
+            metadata = {}
+            metadata["kwargs_search"] = self.kwargs_search
+            metadata["pglabel"] = self.pglabel
+            metadata["outtype"] = self.outtype
+        # description = "Catalog of Axiom assets." if 'description' is not in kwargs else
+        # if 'name' not in kwargs:
+        #     kwargs['name'] = "catalog"
+        # if 'description' not in kwargs:
+        #     kwargs['description'] = "Catalog of Axiom assets."
 
-        super(AXDSCatalog, self).__init__(**kwargs, ttl=ttl)
+        super(AXDSCatalog, self).__init__(**kwargs, ttl=ttl, name=name,
+                                          description=description,
+                                          metadata=metadata)
 
     @property
     def search_url(self):
