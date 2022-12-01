@@ -39,6 +39,7 @@ class AXDSCatalog(Catalog):
         catalog_name: Optional[str] = None,
         page_size: int = 10,
         verbose: bool = False,
+        ttl: Optional[int] = None,
         **kwargs,
     ):
         """Initialize an Axiom Catalog.
@@ -57,11 +58,11 @@ class AXDSCatalog(Catalog):
             Number of results. Default is 1000 but fewer is faster.
         verbose : bool, optional
             Set to True for helpful information.
+        ttl : int, optional
+            Time to live. How long before force-reloading catalog. Set to None to not do this.
 
         kwargs: Other input arguments are passed to the intake Catalog class
         HAVE TO PUT CATALOG STUFF INTO KWARGS INCLUDING METADATA AND DESCRIPTION
-        ttl : int, optional
-            Time to live. How long before force-reloading catalog. Set to None to not do this.
         """
 
         name = catalog_name if catalog_name is not None else "catalog"
@@ -101,7 +102,7 @@ class AXDSCatalog(Catalog):
         else:
             self.pglabel = None
 
-        super(AXDSCatalog, self).__init__(**kwargs, name=name)
+        super(AXDSCatalog, self).__init__(**kwargs, ttl=ttl)
 
     @property
     def search_url(self):
