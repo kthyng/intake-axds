@@ -69,10 +69,7 @@ class AXDSCatalog(Catalog):
         metadata : dict, optional
             Metadata for catalog.
         kwargs: 
-            Other input arguments are passed to the intake Catalog class. They can include:
-            
-            * description
-        HAVE TO PUT CATALOG STUFF INTO KWARGS INCLUDING METADATA AND DESCRIPTION
+            Other input arguments are passed to the intake Catalog class. They can includegetenv, getshell, persist_mode, storage_options, and user_parameters, in addition to some that are surfaced directly in this class.
         """
 
         self.datatype = datatype
@@ -85,7 +82,6 @@ class AXDSCatalog(Catalog):
             raise ValueError(
                 "modules cannot be exported as dataframes since they are gridded data."
             )
-        # self.datatype = datatype
 
         self.outtype = outtype
 
@@ -117,11 +113,6 @@ class AXDSCatalog(Catalog):
             metadata["kwargs_search"] = self.kwargs_search
             metadata["pglabel"] = self.pglabel
             metadata["outtype"] = self.outtype
-        # description = "Catalog of Axiom assets." if 'description' is not in kwargs else
-        # if 'name' not in kwargs:
-        #     kwargs['name'] = "catalog"
-        # if 'description' not in kwargs:
-        #     kwargs['description'] = "Catalog of Axiom assets."
 
         super(AXDSCatalog, self).__init__(**kwargs, ttl=ttl, name=name,
                                           description=description,
@@ -289,7 +280,6 @@ class AXDSCatalog(Catalog):
             #     # # there are description and label too but are they the same for module and layer_group?
 
             args = {
-                # 'dataset_id': dataset_id,
                 "urlpath": urlpath,
             }
 
@@ -313,7 +303,7 @@ class AXDSCatalog(Catalog):
             #     # "info_url": f"{self.url_docs_base}&id={dataset_id}",
             #     "dataset_id": dataset_id,
             # }
-            # entry._plugin = [AXDSSource]
+
             entry._plugin = [plugin]
 
             self._entries[dataset_id] = entry
