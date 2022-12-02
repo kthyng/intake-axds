@@ -13,6 +13,9 @@ from intake.catalog.local import LocalCatalogEntry
 from intake.source.csv import CSVSource
 from intake_xarray.netcdf import NetCDFSource
 
+from operator import itemgetter
+from shapely import wkt
+
 from . import __version__
 from .utils import match_key_to_parameter, return_docs_response
 
@@ -177,6 +180,39 @@ class AXDSCatalog(Catalog):
             self._search_url = url
 
         return self._search_url
+    
+    def _load_metadata(self, results: Dict[str, str]) -> dict:
+        """Load metadata for catalog entry.
+        
+        Parameters
+        ----------
+        results : dict
+            Returned results from call to server for a single dataset.
+        
+        Returns
+        -------
+        dict
+            Metadata to store with catalog entry.
+        """
+
+        # matching names in intake-erddap
+        keys = ["datasetID", "title", "summary", "type", "minTime", "maxTime"]
+        # names of keys in Axiom system. 
+        items = ["uuid", "label", "description", "type", "start_date_time", "end_date_time"]
+        values = itemgetter(*items)(results)
+        metadata = dict(zip(keys, values))
+
+        items = ["institution", "geospatial_bounds"]
+        values = itemgetter(*items)(results["source"]["meta"]["attributes"])
+        metadata.update(dict(zip(items, values)))
+
+        p1 = wkt.loads(metadata["geospatial_bounds"])
+        keys = ["minLongitude", "minLatitude", "maxLongitude", "maxLatitude"]
+        metadata.update(dict(zip(keys, p1.bounds)))
+            
+        metadata["variables"] = list(results["source"]["meta"]["variables"].keys())
+        
+        return metadata
 
     def _load(self):
         """Find all dataset ids and create catalog."""
@@ -193,7 +229,7 @@ class AXDSCatalog(Catalog):
 
         for results in res["results"]:
             dataset_id = results["uuid"]
-
+            
             # # quick check if OPENDAP is in the access methods for this uuid, otherwise move on
             # if self.datatype == "module":
             #     # if opendap is not in the access methods at the module level, then we assume it
@@ -214,25 +250,29 @@ class AXDSCatalog(Catalog):
             #             )
             #         continue
 
-            # if dataset_id == "e30cffbb-d872-4c09-b258-1dcd50aa1d1e":
-            #     import pdb; pdb.set_trace()
             description = f"AXDS dataset_id {dataset_id} of datatype {self.datatype}"
 
-            docs = return_docs_response(dataset_id)
+            # docs = return_docs_response(dataset_id)
             # Find urlpath
             if self.datatype == "platform2":
+                # urlpath = results["source"]["files"]["data.csv.gz"]["url"]
+                # urlpath = results["source"]["files"]["deployment.nc"]["url"]
+                # urlpath = results["source"]["files"]["data.viz.parquet"]["url"]
                 # url = f"{self.url_docs_base}&id={dataset_id}"
                 # res2 = requests.get(url, headers=search_headers).json()
                 if self.outtype == "dataframe":
-                    urlpath = docs["data"]["resources"]["files"]["data.csv.gz"]["url"]
+                    # urlpath = docs["data"]["resources"]["files"]["data.csv.gz"]["url"]
+                    urlpath = results["source"]["files"]["data.csv.gz"]["url"]
+                    # urlpath = results["source"]["files"]["data.viz.parquet"]["url"]
                     plugin = CSVSource  # 'csv'
                 elif self.outtype == "xarray":
-                    key = [
-                        key
-                        for key in docs["data"]["resources"]["files"].keys()
-                        if ".nc" in key
-                    ][0]
-                    urlpath = docs["data"]["resources"]["files"][key]["url"]
+                    # key = [
+                    #     key
+                    #     for key in docs["data"]["resources"]["files"].keys()
+                    #     if ".nc" in key
+                    # ][0]
+                    # urlpath = docs["data"]["resources"]["files"][key]["url"]
+                    urlpath = results["source"]["files"]["deployment.nc"]["url"]
                     plugin = NetCDFSource  # 'netcdf'
             # elif self.datatype == "module":
             #     plugin = NetCDFSource  # 'netcdf'
@@ -291,7 +331,7 @@ class AXDSCatalog(Catalog):
                 driver=plugin,
                 direct_access="allow",
                 args=args,
-                metadata={},
+                metadata=self._load_metadata(results),
                 # True,
                 # args,
                 # {},
