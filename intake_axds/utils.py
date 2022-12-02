@@ -101,7 +101,13 @@ def match_key_to_parameter(
 
 
 def return_docs_response(dataset_id: str) -> dict:
-    """Return request response to docs url in json."""
+    """Return request response to docs url in json.
+
+    Parameters
+    ----------
+    dataset_id : str
+        ID for dataset.
+    """
 
     url_docs_base = "https://search.axds.co/v2/docs?verbose=true"
     url = f"{url_docs_base}&id={dataset_id}"

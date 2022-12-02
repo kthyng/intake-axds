@@ -10,10 +10,20 @@
    :caption: Documentation
 
 
-Top-level API
-*************
+``intake-axds`` catalog
+***********************
 
-.. automodule:: intake_axds
+.. automodule:: intake_axds.axds_cat
+   :members:
+   :inherited-members:
+   :undoc-members:
+   :show-inheritance:
+
+
+``intake-axds`` utilities
+*************************
+
+.. automodule:: intake_axds.utils
    :members:
    :inherited-members:
    :undoc-members:

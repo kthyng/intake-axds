@@ -5,10 +5,12 @@ channels:
 dependencies:
    - python=3.9
    # If your docs code examples depend on other packages add them here
-   - intake
-   - intake-xarray
+   - aiohttp
+   - cf_pandas
+   - h5netcdf
    - pandas
    - requests
+   - shapely
    # These are needed for the docs themselves
    - jupytext
    - numpydoc
@@ -23,7 +25,10 @@ dependencies:
    - pip
    - recommonmark
    - pip:
-     - cf-pandas
+     - git+https://github.com/intake/intake
+     - intake-parquet
+     - intake-xarray
+    #  - "dask[complete]"
      - docrep<=0.2.7
      - furo
      - nbsphinx>=0.8.7

@@ -6,11 +6,14 @@ dependencies:
   - pytest
   # Examples (remove and add as needed)
   - aiohttp
+  - cf_pandas
   - h5netcdf
-  - intake
-  - intake-xarray
   - pandas
   - pip
   - requests
+  - shapely
   - pip:
-    - cf-pandas
+    - git+https://github.com/intake/intake
+    - intake-parquet
+    - intake-xarray
+    # - "dask[complete]"
