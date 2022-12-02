@@ -102,7 +102,7 @@ def match_key_to_parameter(
 
 def return_docs_response(dataset_id: str) -> dict:
     """Return request response to docs url in json.
-    
+
     Parameters
     ----------
     dataset_id : str

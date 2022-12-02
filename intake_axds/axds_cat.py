@@ -3,7 +3,8 @@ Set up a catalog for Axiom assets.
 """
 
 
-from typing import Dict, Optional, Union
+from operator import itemgetter
+from typing import Optional
 
 import pandas as pd
 import requests
@@ -13,12 +14,10 @@ from intake.catalog.local import LocalCatalogEntry
 from intake.source.csv import CSVSource
 from intake_parquet.source import ParquetSource
 from intake_xarray.netcdf import NetCDFSource
-
-from operator import itemgetter
 from shapely import wkt
 
 from . import __version__
-from .utils import match_key_to_parameter, return_docs_response
+from .utils import match_key_to_parameter
 
 
 search_headers = {"Accept": "application/json"}
@@ -40,12 +39,14 @@ class AXDSCatalog(Catalog):
         outtype: str = "dataframe",
         dataframe_filetype: str = "csv",
         keys_to_match: Optional[str] = None,
-        kwargs_search: Optional[Dict[str, Union[str, int, float]]] = None,
+        kwargs_search=None,
+        # kwargs_search: Optional[Dict[str, Union[str, int, float]]] = None,
         page_size: int = 10,
         verbose: bool = False,
         name: str = "catalog",
         description: str = "Catalog of Axiom assets.",
-        metadata: Optional[Dict[str, Union[str, int, float]]] = None,
+        metadata=None,
+        # metadata: Optional[Dict[str, Union[str, int, float]]] = None,
         ttl: Optional[int] = None,
         **kwargs,
     ):
@@ -78,7 +79,7 @@ class AXDSCatalog(Catalog):
             Description for catalog.
         metadata : dict, optional
             Metadata for catalog.
-        kwargs: 
+        kwargs:
             Other input arguments are passed to the intake Catalog class. They can includegetenv, getshell, persist_mode, storage_options, and user_parameters, in addition to some that are surfaced directly in this class.
         """
 
@@ -108,8 +109,13 @@ class AXDSCatalog(Catalog):
                     raise ValueError(
                         f"If any of {check} are input, they all must be input."
                     )
-            if abs(kwargs_search["min_lon"]) > 180 or abs(kwargs_search["max_lon"]) > 180:
-                raise ValueError("`min_lon` and `max_lon` must be in the range -180 to 180.")
+            if (
+                abs(kwargs_search["min_lon"]) > 180
+                or abs(kwargs_search["max_lon"]) > 180
+            ):
+                raise ValueError(
+                    "`min_lon` and `max_lon` must be in the range -180 to 180."
+                )
         else:
             kwargs_search = {}
         self.kwargs_search = kwargs_search
@@ -119,7 +125,7 @@ class AXDSCatalog(Catalog):
             self.pglabel = match_key_to_parameter(keys_to_match)[0]
         else:
             self.pglabel = None
-        
+
         # Put together catalog-level stuff
         if metadata is None:
             metadata = {}
@@ -127,9 +133,9 @@ class AXDSCatalog(Catalog):
             metadata["pglabel"] = self.pglabel
             metadata["outtype"] = self.outtype
 
-        super(AXDSCatalog, self).__init__(**kwargs, ttl=ttl, name=name,
-                                          description=description,
-                                          metadata=metadata)
+        super(AXDSCatalog, self).__init__(
+            **kwargs, ttl=ttl, name=name, description=description, metadata=metadata
+        )
 
     @property
     def search_url(self):
@@ -173,7 +179,7 @@ class AXDSCatalog(Catalog):
                 )
 
                 url += f"{url_add_time}"
-            
+
             if "search_for" in self.kwargs_search:
                 url += f"&query={self.kwargs_search['search_for']}"
 
@@ -191,15 +197,15 @@ class AXDSCatalog(Catalog):
             self._search_url = url
 
         return self._search_url
-    
-    def _load_metadata(self, results: Dict[str, str]) -> dict:
+
+    def _load_metadata(self, results) -> dict:  #: Dict[str, str]
         """Load metadata for catalog entry.
-        
+
         Parameters
         ----------
         results : dict
             Returned results from call to server for a single dataset.
-        
+
         Returns
         -------
         dict
@@ -208,25 +214,37 @@ class AXDSCatalog(Catalog):
 
         # matching names in intake-erddap
         keys = ["datasetID", "title", "summary", "type", "minTime", "maxTime"]
-        # names of keys in Axiom system. 
-        items = ["uuid", "label", "description", "type", "start_date_time", "end_date_time"]
+        # names of keys in Axiom system.
+        items = [
+            "uuid",
+            "label",
+            "description",
+            "type",
+            "start_date_time",
+            "end_date_time",
+        ]
         values = itemgetter(*items)(results)
         metadata = dict(zip(keys, values))
 
         # items = ["institution", "geospatial_bounds"]
         # values = itemgetter(*items)(results["source"]["meta"]["attributes"])
         # metadata.update(dict(zip(items, values)))
-        
-        metadata["institution"] = results["source"]["meta"]["attributes"]["institution"] if "institution" in results["source"]["meta"]["attributes"] else None
-        metadata["geospatial_bounds"] = results["source"]["meta"]["attributes"]["geospatial_bounds"]
-        
+
+        metadata["institution"] = (
+            results["source"]["meta"]["attributes"]["institution"]
+            if "institution" in results["source"]["meta"]["attributes"]
+            else None
+        )
+        metadata["geospatial_bounds"] = results["source"]["meta"]["attributes"][
+            "geospatial_bounds"
+        ]
 
         p1 = wkt.loads(metadata["geospatial_bounds"])
         keys = ["minLongitude", "minLatitude", "maxLongitude", "maxLatitude"]
         metadata.update(dict(zip(keys, p1.bounds)))
-            
+
         metadata["variables"] = list(results["source"]["meta"]["variables"].keys())
-        
+
         return metadata
 
     def _load(self):
@@ -238,16 +256,18 @@ class AXDSCatalog(Catalog):
             raise ValueError("No results were returned for the search.")
 
         if self.verbose:
-            print(f"Number of results found: {len(res['results'])}. Page size: {self.page_size}.")
+            print(
+                f"Number of results found: {len(res['results'])}. Page size: {self.page_size}."
+            )
 
         self._entries = {}
         missing_datasets = []  # dataset_ids that don't have requested outtype
         for results in res["results"]:
             dataset_id = results["uuid"]
-            
+
             # if self.verbose:
             #     print("Dataset id: ", dataset_id)
-            
+
             # # quick check if OPENDAP is in the access methods for this uuid, otherwise move on
             # if self.datatype == "module":
             #     # if opendap is not in the access methods at the module level, then we assume it
@@ -282,7 +302,7 @@ class AXDSCatalog(Catalog):
                     if self.dataframe_filetype == "csv":
                         # urlpath = docs["data"]["resources"]["files"]["data.csv.gz"]["url"]
                         urlpath = results["source"]["files"]["data.csv.gz"]["url"]
-                        plugin = CSVSource  # 'csv'    
+                        plugin = CSVSource  # 'csv'
                     elif self.dataframe_filetype == "parquet":
                         try:
                             key = [
@@ -292,12 +312,14 @@ class AXDSCatalog(Catalog):
                             ][0]
                             urlpath = results["source"]["files"][key]["url"]
                             # urlpath = results["source"]["files"]["data.viz.parquet"]["url"]
-                        except:
+                        except Exception:
                             missing_datasets.append(dataset_id)
                             continue
                         plugin = ParquetSource
                     else:
-                        raise ValueError(f"Valid values of `dataframe_filetype` are 'csv' and 'parquet'. User entered {self.dataframe_filetype}.")
+                        raise ValueError(
+                            f"Valid values of `dataframe_filetype` are 'csv' and 'parquet'. User entered {self.dataframe_filetype}."
+                        )
                 elif self.outtype == "xarray":
                     # key = [
                     #     key
@@ -312,7 +334,7 @@ class AXDSCatalog(Catalog):
                             if ".nc" in key
                         ][0]
                         urlpath = results["source"]["files"][key]["url"]
-                    except:
+                    except Exception:
                         # if self.verbose:
                         #     print(f"Dataset has no netcdf file: {dataset_id}.")
                         missing_datasets.append(dataset_id)
@@ -396,4 +418,6 @@ class AXDSCatalog(Catalog):
             self._entries[dataset_id] = entry
         if self.verbose:
             # if self.outtype == "xarray":
-            print(f"Number of datasets with file missing for outtype {self.outtype}: {len(missing_datasets)}. The dataset_ids have been excluded from the catalog and are {missing_datasets}.")
+            print(
+                f"Number of datasets with file missing for outtype {self.outtype}: {len(missing_datasets)}. The dataset_ids have been excluded from the catalog and are {missing_datasets}."
+            )
