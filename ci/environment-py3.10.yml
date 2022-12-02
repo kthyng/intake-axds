@@ -8,6 +8,7 @@ dependencies:
   - intake-xarray
   - pandas
   - requests
+  - shapely
   ##############
   - pytest
   - pip:
