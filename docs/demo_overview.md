@@ -6,7 +6,7 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.14.0
 kernelspec:
-  display_name: Python 3.10.6 ('intake-axds')
+  display_name: Python 3.9.13 ('intake-axds_docs')
   language: python
   name: python3
 ---
@@ -17,13 +17,22 @@ kernelspec:
 import intake
 ```
 
-## First 10
+## Defaults
 
+The default (and currently only) data type is "platform2".
 The default page size is 10, so requesting platforms without any other input arguments will return the first 10 datasets. The input argument `page_size` controls the maximum number of entries in the catalog.
 
 ```{code-cell} ipython3
-cat = intake.open_axds_cat(datatype='platform2')
+cat = intake.open_axds_cat()
 len(cat)
+```
+
+```{code-cell} ipython3
+cat
+```
+
+```{code-cell} ipython3
+cat[list(cat)[0]]
 ```
 
 ## Filter in time and space
@@ -37,11 +46,28 @@ kw = {
     "min_lat": 50,
     "max_lat": 66,
     "min_time": '2015-1-1',
-    "max_time": '2020-1-1',
+    "max_time": '2015-1-2',
 }
 
-cat = intake.open_axds_cat(datatype='platform2', kwargs_search=kw)
-cat
+cat = intake.open_axds_cat(datatype='platform2', kwargs_search=kw, page_size=1000)
+len(cat)
+```
+
+## Additionally filter with keyword
+
+```{code-cell} ipython3
+kw = {
+    "min_lon": -180,
+    "max_lon": -158,
+    "min_lat": 50,
+    "max_lat": 66,
+    "min_time": '2015-1-1',
+    "max_time": '2020-1-1',
+    "search_for": "humpback"
+}
+
+cat = intake.open_axds_cat(datatype='platform2', kwargs_search=kw, page_size=1000)
+len(cat)
 ```
 
 ## Output container type
@@ -50,8 +76,10 @@ cat
 
 ### Dataframe
 
+For dataframes, the data by default comes from csv files, but can be accessed by parquet files instead. The `dataframe_filetype` argument controls this. About half of the datasets are not available from parquet files.
+
 ```{code-cell} ipython3
-cat = intake.open_axds_cat(datatype='platform2', outtype='dataframe')
+cat = intake.open_axds_cat(datatype='platform2', outtype='dataframe', dataframe_filetype="csv")
 source_name = list(cat)[0]
 cat[source_name].read()
 ```
@@ -89,8 +117,4 @@ cat.ttl
 
 ```{code-cell} ipython3
 cat = intake.open_axds_cat(verbose=True)
-```
-
-```{code-cell} ipython3
-
 ```
