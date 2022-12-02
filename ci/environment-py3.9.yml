@@ -4,13 +4,13 @@ channels:
 dependencies:
   - python=3.9
   ############## These will have to be adjusted to your specific project
+  - cf_pandas
   - intake-xarray
   - pandas
   - requests
   ##############
   - pytest
   - pip:
-    - cf-pandas
     - codecov
     - pytest-cov
     - coverage[toml]

@@ -187,7 +187,7 @@ class AXDSCatalog(Catalog):
             raise ValueError("No results were returned for the search.")
 
         if self.verbose:
-            print(f"Number of results found: {len(res['results'])}")
+            print(f"Number of results found: {len(res['results'])}. Page size: {self.page_size}.")
 
         self._entries = {}
 

@@ -6,11 +6,11 @@ dependencies:
   - pytest
   # Examples (remove and add as needed)
   - aiohttp
+  - cf_pandas
   - h5netcdf
   - intake-xarray
   - pandas
   - pip
   - requests
   - pip:
-    - cf-pandas
     - git+https://github.com/intake/intake
