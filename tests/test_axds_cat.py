@@ -58,10 +58,18 @@ def test_axds_catalog_platform_dataframe(mock_requests):
     """Test basic catalog API: platform as dataframe."""
     
     mock_requests.side_effect = [FakeResponse()]
-    cat = AXDSCatalog(datatype="platform2", outtype="dataframe")
+    cat = AXDSCatalog(datatype="platform2", outtype="dataframe", dataframe_filetype="csv")
+    assert list(cat) == ["test_uuid"]
+    assert cat["test_uuid"].describe()["args"]["urlpath"] == "fake.csv.gz"
+
+    mock_requests.side_effect = [FakeResponse()]
+    cat = AXDSCatalog(datatype="platform2", outtype="dataframe", dataframe_filetype="parquet")
     assert list(cat) == ["test_uuid"]
     assert cat["test_uuid"].describe()["args"]["urlpath"] == "fake.parquet"
-    # assert cat["test_uuid"].urlpath == "fake.parquet"
+
+    with pytest.raises(ValueError):
+        mock_requests.side_effect = [FakeResponse()]
+        cat = AXDSCatalog(datatype="platform2", outtype="dataframe", dataframe_filetype="invalid")
 
 
 @mock.patch("requests.get")
@@ -92,7 +100,7 @@ def test_axds_catalog_platform_search(mock_requests):
 
     cat = AXDSCatalog(datatype="platform2", outtype="dataframe", kwargs_search=kw)
     assert list(cat) == ["test_uuid"]
-    assert cat["test_uuid"].describe()["args"]["urlpath"] == "fake.parquet"
+    assert cat["test_uuid"].describe()["args"]["urlpath"] == "fake.csv.gz"
     # assert cat["test_uuid"].urlpath == "fake.parquet"
 
 
@@ -135,7 +143,7 @@ def test_axds_catalog_platform_search_variable(mock_requests):
     cat = AXDSCatalog(datatype="platform2", outtype="dataframe", keys_to_match="wind")
     assert list(cat) == ["test_uuid"]
     # assert cat["test_uuid"].urlpath == "fake.parquet"
-    assert cat["test_uuid"].describe()["args"]["urlpath"] == "fake.parquet"
+    assert cat["test_uuid"].describe()["args"]["urlpath"] == "fake.csv.gz"
     assert cat.pglabel == "Winds: Gusts"
     assert "Parameter+Group" in cat.search_url
 

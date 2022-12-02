@@ -10,7 +10,7 @@ import requests
 
 from intake.catalog.base import Catalog
 from intake.catalog.local import LocalCatalogEntry
-# from intake.source.csv import CSVSource
+from intake.source.csv import CSVSource
 from intake_parquet.source import ParquetSource
 from intake_xarray.netcdf import NetCDFSource
 
@@ -38,6 +38,7 @@ class AXDSCatalog(Catalog):
         self,
         datatype: str = "platform2",
         outtype: str = "dataframe",
+        dataframe_filetype: str = "csv",
         keys_to_match: Optional[str] = None,
         kwargs_search: Optional[Dict[str, Union[str, int, float]]] = None,
         page_size: int = 10,
@@ -56,6 +57,8 @@ class AXDSCatalog(Catalog):
             Axiom data type. Currently only "platform2" but eventually also "module".
         outtype : str
             Type of output. Probably will be "dataframe" or "xarray".
+        dataframe_filetype : str, optional
+            Type of file data for dataframe comes from: "csv" (default) or "parquet". About half of the datasets do not have parquet files currently — you can see them by inputting `verbose=True` to your call.
         keys_to_match : str, optional
             Name of key to match with system-available variable parameterNames using criteria. Currently only 1 at a time.
         kwargs_search : dict, optional
@@ -84,6 +87,7 @@ class AXDSCatalog(Catalog):
         self.kwargs_search = kwargs_search
         self.page_size = page_size
         self.verbose = verbose
+        self.dataframe_filetype = dataframe_filetype
 
         if datatype == "module" and outtype == "dataframe":
             raise ValueError(
@@ -237,7 +241,7 @@ class AXDSCatalog(Catalog):
             print(f"Number of results found: {len(res['results'])}. Page size: {self.page_size}.")
 
         self._entries = {}
-        missing_datasets = []
+        missing_datasets = []  # dataset_ids that don't have requested outtype
         for results in res["results"]:
             dataset_id = results["uuid"]
             
@@ -275,11 +279,25 @@ class AXDSCatalog(Catalog):
                 # url = f"{self.url_docs_base}&id={dataset_id}"
                 # res2 = requests.get(url, headers=search_headers).json()
                 if self.outtype == "dataframe":
-                    # urlpath = docs["data"]["resources"]["files"]["data.csv.gz"]["url"]
-                    # urlpath = results["source"]["files"]["data.csv.gz"]["url"]
-                    # plugin = CSVSource  # 'csv'                    
-                    urlpath = results["source"]["files"]["data.viz.parquet"]["url"]
-                    plugin = ParquetSource
+                    if self.dataframe_filetype == "csv":
+                        # urlpath = docs["data"]["resources"]["files"]["data.csv.gz"]["url"]
+                        urlpath = results["source"]["files"]["data.csv.gz"]["url"]
+                        plugin = CSVSource  # 'csv'    
+                    elif self.dataframe_filetype == "parquet":
+                        try:
+                            key = [
+                                key
+                                for key in results["source"]["files"].keys()
+                                if ".parquet" in key
+                            ][0]
+                            urlpath = results["source"]["files"][key]["url"]
+                            # urlpath = results["source"]["files"]["data.viz.parquet"]["url"]
+                        except:
+                            missing_datasets.append(dataset_id)
+                            continue
+                        plugin = ParquetSource
+                    else:
+                        raise ValueError(f"Valid values of `dataframe_filetype` are 'csv' and 'parquet'. User entered {self.dataframe_filetype}.")
                 elif self.outtype == "xarray":
                     # key = [
                     #     key
@@ -377,5 +395,5 @@ class AXDSCatalog(Catalog):
 
             self._entries[dataset_id] = entry
         if self.verbose:
-            if self.outtype == "xarray":
-                print(f"Number of datasets with no netcdf file: {len(missing_datasets)}. The dataset_ids have been excluded from the catalog and are {missing_datasets}.")
+            # if self.outtype == "xarray":
+            print(f"Number of datasets with file missing for outtype {self.outtype}: {len(missing_datasets)}. The dataset_ids have been excluded from the catalog and are {missing_datasets}.")
