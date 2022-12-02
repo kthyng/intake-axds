@@ -58,7 +58,10 @@ class AXDSCatalog(Catalog):
         keys_to_match : str, optional
             Name of key to match with system-available variable parameterNames using criteria. Currently only 1 at a time.
         kwargs_search : dict, optional
-            Contains search information if desired. Keys include: "max_lon", "max_lat", "min_lon", "min_lat", "min_time", "max_time". Longitude values should be in the range -180 to 180, which is the standard for the Axiom system.
+            Keyword arguments to input to search on the server before making the catalog. Options are:
+            * to search by bounding box: include all of min_lon, max_lon, min_lat, max_lat: (int, float). Longitudes must be between -180 to +180.
+            * to search within a datetime range: include both of min_time, max_time: interpretable datetime string, e.g., "2021-1-1"
+            * to search using a textual keyword: include `search_for` as a string.
         page_size : int, optional
             Number of results. Default is 1000 but fewer is faster.
         verbose : bool, optional
@@ -165,6 +168,9 @@ class AXDSCatalog(Catalog):
                 )
 
                 url += f"{url_add_time}"
+            
+            if "search_for" in self.kwargs_search:
+                url += f"&query={self.kwargs_search['search_for']}"
 
             if self.pglabel is not None:
 
@@ -202,9 +208,13 @@ class AXDSCatalog(Catalog):
         values = itemgetter(*items)(results)
         metadata = dict(zip(keys, values))
 
-        items = ["institution", "geospatial_bounds"]
-        values = itemgetter(*items)(results["source"]["meta"]["attributes"])
-        metadata.update(dict(zip(items, values)))
+        # items = ["institution", "geospatial_bounds"]
+        # values = itemgetter(*items)(results["source"]["meta"]["attributes"])
+        # metadata.update(dict(zip(items, values)))
+        
+        metadata["institution"] = results["source"]["meta"]["attributes"]["institution"] if "institution" in results["source"]["meta"]["attributes"] else None
+        metadata["geospatial_bounds"] = results["source"]["meta"]["attributes"]["geospatial_bounds"]
+        
 
         p1 = wkt.loads(metadata["geospatial_bounds"])
         keys = ["minLongitude", "minLatitude", "maxLongitude", "maxLatitude"]
@@ -226,9 +236,12 @@ class AXDSCatalog(Catalog):
             print(f"Number of results found: {len(res['results'])}. Page size: {self.page_size}.")
 
         self._entries = {}
-
+        missing_datasets = []
         for results in res["results"]:
             dataset_id = results["uuid"]
+            
+            # if self.verbose:
+            #     print("Dataset id: ", dataset_id)
             
             # # quick check if OPENDAP is in the access methods for this uuid, otherwise move on
             # if self.datatype == "module":
@@ -272,7 +285,19 @@ class AXDSCatalog(Catalog):
                     #     if ".nc" in key
                     # ][0]
                     # urlpath = docs["data"]["resources"]["files"][key]["url"]
-                    urlpath = results["source"]["files"]["deployment.nc"]["url"]
+                    try:
+                        key = [
+                            key
+                            for key in results["source"]["files"].keys()
+                            if ".nc" in key
+                        ][0]
+                        urlpath = results["source"]["files"][key]["url"]
+                    except:
+                        # if self.verbose:
+                        #     print(f"Dataset has no netcdf file: {dataset_id}.")
+                        missing_datasets.append(dataset_id)
+                        continue
+                    # urlpath = results["source"]["files"]["deployment.nc"]["url"]
                     plugin = NetCDFSource  # 'netcdf'
             # elif self.datatype == "module":
             #     plugin = NetCDFSource  # 'netcdf'
@@ -349,3 +374,6 @@ class AXDSCatalog(Catalog):
             entry._plugin = [plugin]
 
             self._entries[dataset_id] = entry
+        if self.verbose:
+            if self.outtype == "xarray":
+                print(f"Number of datasets with no netcdf file: {len(missing_datasets)}. The dataset_ids have been excluded from the catalog and are {missing_datasets}.")
