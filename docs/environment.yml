@@ -8,7 +8,6 @@ dependencies:
    - aiohttp
    - cf_pandas
    - h5netcdf
-   - intake-xarray
    - pandas
    - requests
    - shapely
@@ -27,6 +26,9 @@ dependencies:
    - recommonmark
    - pip:
      - git+https://github.com/intake/intake
+     - intake-parquet
+     - intake-xarray
+    #  - "dask[complete]"
      - docrep<=0.2.7
      - furo
      - nbsphinx>=0.8.7
