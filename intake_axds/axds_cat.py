@@ -10,7 +10,8 @@ import requests
 
 from intake.catalog.base import Catalog
 from intake.catalog.local import LocalCatalogEntry
-from intake.source.csv import CSVSource
+# from intake.source.csv import CSVSource
+from intake_parquet.source import ParquetSource
 from intake_xarray.netcdf import NetCDFSource
 
 from operator import itemgetter
@@ -275,9 +276,10 @@ class AXDSCatalog(Catalog):
                 # res2 = requests.get(url, headers=search_headers).json()
                 if self.outtype == "dataframe":
                     # urlpath = docs["data"]["resources"]["files"]["data.csv.gz"]["url"]
-                    urlpath = results["source"]["files"]["data.csv.gz"]["url"]
-                    # urlpath = results["source"]["files"]["data.viz.parquet"]["url"]
-                    plugin = CSVSource  # 'csv'
+                    # urlpath = results["source"]["files"]["data.csv.gz"]["url"]
+                    # plugin = CSVSource  # 'csv'                    
+                    urlpath = results["source"]["files"]["data.viz.parquet"]["url"]
+                    plugin = ParquetSource
                 elif self.outtype == "xarray":
                     # key = [
                     #     key

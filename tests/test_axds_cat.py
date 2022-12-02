@@ -24,7 +24,7 @@ class FakeResponse(object):
                                                               "geospatial_bounds": "POLYGON ((-156.25421 20.29439, -160.6308 21.64507, -161.15813 21.90021, -163.60744 23.30368, -163.83879 23.67031, -163.92656 23.83893, -162.37264 55.991, -148.04915 22.40486, -156.25421 20.29439))"},
                                                 "variables": {"lon": "lon", "time": "time"}},
                                        "files": {"data.csv.gz": {"url": "fake.csv.gz"},
-                                                 "data.viz.parquet": {"url": "fake.viz.parquet"},
+                                                 "data.viz.parquet": {"url": "fake.parquet"},
                                                  "deployment.nc": {"url": "fake.nc"},
                                                  }
                                        },
@@ -60,7 +60,8 @@ def test_axds_catalog_platform_dataframe(mock_requests):
     mock_requests.side_effect = [FakeResponse()]
     cat = AXDSCatalog(datatype="platform2", outtype="dataframe")
     assert list(cat) == ["test_uuid"]
-    assert cat["test_uuid"].urlpath == "fake.csv.gz"
+    assert cat["test_uuid"].describe()["args"]["urlpath"] == "fake.parquet"
+    # assert cat["test_uuid"].urlpath == "fake.parquet"
 
 
 @mock.patch("requests.get")
@@ -70,7 +71,8 @@ def test_axds_catalog_platform_xarray(mock_requests):
     mock_requests.side_effect = [FakeResponse()]
     cat = AXDSCatalog(datatype="platform2", outtype="xarray")
     assert list(cat) == ["test_uuid"]
-    assert cat["test_uuid"].urlpath == "fake.nc"
+    assert cat["test_uuid"].describe()["args"]["urlpath"] == "fake.nc"
+    # assert cat["test_uuid"].urlpath == "fake.nc"
 
 
 @mock.patch("requests.get")
@@ -90,7 +92,8 @@ def test_axds_catalog_platform_search(mock_requests):
 
     cat = AXDSCatalog(datatype="platform2", outtype="dataframe", kwargs_search=kw)
     assert list(cat) == ["test_uuid"]
-    assert cat["test_uuid"].urlpath == "fake.csv.gz"
+    assert cat["test_uuid"].describe()["args"]["urlpath"] == "fake.parquet"
+    # assert cat["test_uuid"].urlpath == "fake.parquet"
 
 
 @mock.patch("requests.get")
@@ -131,7 +134,8 @@ def test_axds_catalog_platform_search_variable(mock_requests):
 
     cat = AXDSCatalog(datatype="platform2", outtype="dataframe", keys_to_match="wind")
     assert list(cat) == ["test_uuid"]
-    assert cat["test_uuid"].urlpath == "fake.csv.gz"
+    # assert cat["test_uuid"].urlpath == "fake.parquet"
+    assert cat["test_uuid"].describe()["args"]["urlpath"] == "fake.parquet"
     assert cat.pglabel == "Winds: Gusts"
     assert "Parameter+Group" in cat.search_url
 
