@@ -130,6 +130,7 @@ class AXDSCatalog(Catalog):
 
         url = f"{self.url_search_base}&type={self.datatype}"
 
+        assert isinstance(self.kwargs_search, dict)
         if self.kwargs_search.keys() >= {
             "max_lon",
             "min_lon",
@@ -157,9 +158,7 @@ class AXDSCatalog(Catalog):
             ) // pd.Timedelta("1s")
 
             # search by time
-            url_add_time = (
-                f"&startDateTime={startDateTime}&endDateTime={endDateTime}"
-            )
+            url_add_time = f"&startDateTime={startDateTime}&endDateTime={endDateTime}"
 
             url += f"{url_add_time}"
 
@@ -178,9 +177,16 @@ class AXDSCatalog(Catalog):
             print(f"search url: {url}")
 
         return url
-    
+
     def get_search_urls(self) -> list:
-        
+        """Gather all search urls for catalog.
+
+        Returns
+        -------
+        list
+            List of search urls.
+        """
+
         if self.pglabels is not None:
             search_urls = []
             for pglabel in self.pglabels:
@@ -188,7 +194,7 @@ class AXDSCatalog(Catalog):
                 search_urls.append(self.search_url(pglabel))
         else:
             search_urls = [self.search_url()]
-        
+
         return search_urls
 
     def _load_metadata(self, results) -> dict:  #: Dict[str, str]
@@ -239,9 +245,9 @@ class AXDSCatalog(Catalog):
         metadata["variables"] = list(results["source"]["meta"]["variables"].keys())
 
         return metadata
-    
+
     def _load_all_results(self):
-        
+
         all_results = []
         for search_url in self.get_search_urls():
             res = requests.get(search_url, headers=search_headers).json()
@@ -270,11 +276,11 @@ class AXDSCatalog(Catalog):
         self._entries = {}
         for results in results:
             dataset_id = results["uuid"]
-            
+
             # don't repeat an entry (it won't actually allow you to, but probably saves time not to try)
             if dataset_id in self._entries:
                 continue
-            
+
             if self.verbose:
                 print(f"Dataset ID: {dataset_id}")
 

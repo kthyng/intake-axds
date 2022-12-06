@@ -91,7 +91,12 @@ def match_key_to_parameter(
     vars = cfp.match_criteria_key(names, key_to_match, criteria)
 
     # find parametergroupid that matches var
-    pgids = [i["idParameterGroup"] for var in vars for i in params if i["parameterName"] == var]
+    pgids = [
+        i["idParameterGroup"]
+        for var in vars
+        for i in params
+        if i["parameterName"] == var
+    ]
     # pgid = pgids[0]
 
     # find parametergroup label to match id
