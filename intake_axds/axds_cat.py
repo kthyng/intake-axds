@@ -4,7 +4,7 @@ Set up a catalog for Axiom assets.
 
 
 from operator import itemgetter
-from typing import Optional
+from typing import MutableMapping, Optional, Union
 
 import pandas as pd
 import requests
@@ -36,13 +36,15 @@ class AXDSCatalog(Catalog):
         self,
         datatype: str = "platform2",
         keys_to_match: Optional[str] = None,
-        kwargs_search=None,
+        # kwargs_search=None,
+        kwargs_search: MutableMapping[str, Union[str, int, float]] = None,
         # kwargs_search: Optional[Dict[str, Union[str, int, float]]] = None,
         page_size: int = 10,
         verbose: bool = False,
         name: str = "catalog",
         description: str = "Catalog of Axiom assets.",
-        metadata=None,
+        # metadata=None,
+        metadata: dict = None,
         # metadata: Optional[Dict[str, Union[str, int, float]]] = None,
         ttl: Optional[int] = None,
         **kwargs,
@@ -94,13 +96,14 @@ class AXDSCatalog(Catalog):
                     raise ValueError(
                         f"If any of {check} are input, they all must be input."
                     )
-            if (
-                abs(kwargs_search["min_lon"]) > 180
-                or abs(kwargs_search["max_lon"]) > 180
-            ):
-                raise ValueError(
-                    "`min_lon` and `max_lon` must be in the range -180 to 180."
-                )
+
+            min_lon, max_lon = kwargs_search["min_lon"], kwargs_search["max_lon"]
+            if isinstance(min_lon, (int, float)) and isinstance(max_lon, (int, float)):
+                if abs(min_lon) > 180 or abs(max_lon) > 180:
+                    raise ValueError(
+                        "`min_lon` and `max_lon` must be in the range -180 to 180."
+                    )
+
         else:
             kwargs_search = {}
         self.kwargs_search = kwargs_search
