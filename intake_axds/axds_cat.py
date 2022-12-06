@@ -13,8 +13,6 @@ from intake.catalog.base import Catalog
 from intake.catalog.local import LocalCatalogEntry
 from intake.source.csv import CSVSource
 from intake_parquet.source import ParquetSource
-
-# from intake_xarray.netcdf import NetCDFSource
 from shapely import wkt
 
 from . import __version__
