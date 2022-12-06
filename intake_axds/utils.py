@@ -88,16 +88,16 @@ def match_key_to_parameter(
     group_params = resp["parameterGroups"]
 
     # select parameterName that matches selected key
-    var = cfp.match_criteria_key(names, key_to_match, criteria)
+    vars = cfp.match_criteria_key(names, key_to_match, criteria)
 
     # find parametergroupid that matches var
-    pgids = [i["idParameterGroup"] for i in params if i["parameterName"] == var[0]]
-    pgid = pgids[0]
+    pgids = [i["idParameterGroup"] for var in vars for i in params if i["parameterName"] == var]
+    # pgid = pgids[0]
 
     # find parametergroup label to match id
-    pglabels = [i["label"] for i in group_params if i["id"] == pgid]
+    pglabels = [i["label"] for pgid in pgids for i in group_params if i["id"] == pgid]
 
-    return pglabels
+    return list(set(pglabels))
 
 
 def return_docs_response(dataset_id: str) -> dict:

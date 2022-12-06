@@ -131,7 +131,7 @@ def test_axds_catalog_platform_search_for(mock_requests):
     }
 
     cat = AXDSCatalog(datatype="platform2", kwargs_search=kw)
-    assert "&query=whale" in cat.search_url
+    assert "&query=whale" in cat.get_search_urls()[0]
 
 
 @mock.patch("requests.get")
@@ -153,8 +153,8 @@ def test_axds_catalog_platform_search_variable(mock_requests):
     cat = AXDSCatalog(datatype="platform2", keys_to_match="wind")
     assert list(cat) == ["test_platform_parquet", "test_platform_csv"]
     assert cat["test_platform_parquet"].describe()["args"]["urlpath"] == "fake.parquet"
-    assert cat.pglabel == "Winds: Gusts"
-    assert "Parameter+Group" in cat.search_url
+    assert cat.pglabels == ["Winds: Gusts"]
+    assert "Parameter+Group" in cat.get_search_urls()[0]
 
 
 def test_invalid_kwarg_search():
