@@ -74,20 +74,12 @@ len(cat)
 
 +++
 
-### Dataframe
+### Dataframe for platforms
 
 For dataframes, the data by default comes from csv files, but can be accessed by parquet files instead. The `dataframe_filetype` argument controls this. About half of the datasets are not available from parquet files.
 
 ```{code-cell} ipython3
-cat = intake.open_axds_cat(datatype='platform2', outtype='dataframe', dataframe_filetype="csv")
-source_name = list(cat)[0]
-cat[source_name].read()
-```
-
-### xarray
-
-```{code-cell} ipython3
-cat = intake.open_axds_cat(datatype='platform2', outtype='xarray')
+cat = intake.open_axds_cat(datatype='platform2')
 source_name = list(cat)[0]
 cat[source_name].read()
 ```
