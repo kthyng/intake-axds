@@ -56,7 +56,7 @@ class FakeResponse(object):
                             "data.csv.gz": {"url": "fake.csv.gz"},
                         },
                     },
-                }
+                },
             ]
         }
         return res
