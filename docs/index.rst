@@ -6,6 +6,11 @@
 Welcome to intake-axds's documentation!
 =======================================
 
+Installation
+------------
+
+To install from PyPI:
+  >>> pip install intake-axds
 
 .. toctree::
    :maxdepth: 2

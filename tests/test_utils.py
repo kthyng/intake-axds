@@ -41,6 +41,13 @@ class FakeResponseParams(object):
                     "legacyId": "Wind Gust",
                     "shortLabel": "Wind Gust",
                 },
+                {
+                    "id": 22,
+                    "label": "Humidity: Relative Humidity",
+                    "included": True,
+                    "legacyId": "RELATIVE_HUMIDITY",
+                    "shortLabel": "Humidity",
+                },
             ],
         }
 
@@ -72,3 +79,14 @@ def test_parameters_and_key(mock_requests):
     }
     match_to_key = utils.match_key_to_parameter("wind", criteria)
     assert match_to_key == ["Winds: Gusts"]
+
+
+@mock.patch("requests.get")
+def test_parameters_and_std_names(mock_requests):
+    """match std_names"""
+
+    mock_requests.return_value = FakeResponseParams()
+    match_to_name = utils.match_std_names_to_parameter(
+        ["wind_gust_to_direction", "relative_humidity"]
+    )
+    assert sorted(match_to_name) == ["Humidity: Relative Humidity", "Winds: Gusts"]

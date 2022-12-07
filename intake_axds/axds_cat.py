@@ -9,6 +9,7 @@ from typing import MutableMapping, Optional, Union
 import pandas as pd
 import requests
 
+from cf_pandas import astype
 from intake.catalog.base import Catalog
 from intake.catalog.local import LocalCatalogEntry
 from intake.source.csv import CSVSource
@@ -16,7 +17,7 @@ from intake_parquet.source import ParquetSource
 from shapely import wkt
 
 from . import __version__
-from .utils import match_key_to_parameter
+from .utils import match_key_to_parameter, match_std_names_to_parameter
 
 
 search_headers = {"Accept": "application/json"}
@@ -35,17 +36,14 @@ class AXDSCatalog(Catalog):
     def __init__(
         self,
         datatype: str = "platform2",
-        keys_to_match: Optional[str] = None,
-        # kwargs_search=None,
+        keys_to_match: Optional[Union[str, list]] = None,
+        standard_names: Optional[Union[str, list]] = None,
         kwargs_search: MutableMapping[str, Union[str, int, float]] = None,
-        # kwargs_search: Optional[Dict[str, Union[str, int, float]]] = None,
         page_size: int = 10,
         verbose: bool = False,
         name: str = "catalog",
         description: str = "Catalog of Axiom assets.",
-        # metadata=None,
         metadata: dict = None,
-        # metadata: Optional[Dict[str, Union[str, int, float]]] = None,
         ttl: Optional[int] = None,
         **kwargs,
     ):
@@ -55,8 +53,10 @@ class AXDSCatalog(Catalog):
         ----------
         datatype : str
             Axiom data type. Currently only "platform2" but eventually also "module". Platforms will be returned as dataframe containers.
-        keys_to_match : str, optional
-            Name of key to match with system-available variable parameterNames using criteria. Currently only 1 at a time.
+        keys_to_match : str, list, optional
+            Name of keys to match with system-available variable parameterNames using criteria. To filter search by variables, either input keys_to_match and a vocabulary or input standard_names.
+        standard_names : str, list, optional
+            Standard names to select from Axiom search parameterNames. To filter search by variables, either input keys_to_match and a vocabulary or input standard_names.
         kwargs_search : dict, optional
             Keyword arguments to input to search on the server before making the catalog. Options are:
             * to search by bounding box: include all of min_lon, max_lon, min_lat, max_lat: (int, float). Longitudes must be between -180 to +180.
@@ -108,82 +108,102 @@ class AXDSCatalog(Catalog):
             kwargs_search = {}
         self.kwargs_search = kwargs_search
 
+        # input keys_to_match OR standard_names but not both
+        if keys_to_match is not None and standard_names is not None:
+            raise ValueError(
+                "Input either `keys_to_match` or `standard_names` but not both."
+            )
+
+        self.pglabels: Optional[list] = None
         if keys_to_match is not None:
-            # Currently just take first match, but there could be more than one.
-            self.pglabel = match_key_to_parameter(keys_to_match)[0]
-        else:
-            self.pglabel = None
+            self.pglabels = match_key_to_parameter(astype(keys_to_match, list))
+        elif standard_names is not None:
+            self.pglabels = match_std_names_to_parameter(astype(standard_names, list))
 
         # Put together catalog-level stuff
         if metadata is None:
             metadata = {}
             metadata["kwargs_search"] = self.kwargs_search
-            metadata["pglabel"] = self.pglabel
+            metadata["pglabels"] = self.pglabels
 
         super(AXDSCatalog, self).__init__(
             **kwargs, ttl=ttl, name=name, description=description, metadata=metadata
         )
 
-    @property
-    def search_url(self):
+    def search_url(self, pglabel: Optional[str] = None) -> str:
         """Set up url for search."""
 
-        if not hasattr(self, "_search_url"):
+        self.url_search_base = f"https://search.axds.co/v2/search?portalId=-1&page=1&pageSize={self.page_size}&verbose=true"
 
-            self.url_search_base = f"https://search.axds.co/v2/search?portalId=-1&page=1&pageSize={self.page_size}&verbose=true"
+        url = f"{self.url_search_base}&type={self.datatype}"
 
-            url = f"{self.url_search_base}&type={self.datatype}"
+        assert isinstance(self.kwargs_search, dict)
+        if self.kwargs_search.keys() >= {
+            "max_lon",
+            "min_lon",
+            "min_lat",
+            "max_lat",
+        }:
+            url_add_box = (
+                f'&geom={{"type":"Polygon","coordinates":[[[{self.kwargs_search["min_lon"]},{self.kwargs_search["min_lat"]}],'
+                + f'[{self.kwargs_search["max_lon"]},{self.kwargs_search["min_lat"]}],'
+                + f'[{self.kwargs_search["max_lon"]},{self.kwargs_search["max_lat"]}],'
+                + f'[{self.kwargs_search["min_lon"]},{self.kwargs_search["max_lat"]}],'
+                + f'[{self.kwargs_search["min_lon"]},{self.kwargs_search["min_lat"]}]]]}}'
+            )
+            url += f"{url_add_box}"
 
-            if self.kwargs_search.keys() >= {
-                "max_lon",
-                "min_lon",
-                "min_lat",
-                "max_lat",
-            }:
-                url_add_box = (
-                    f'&geom={{"type":"Polygon","coordinates":[[[{self.kwargs_search["min_lon"]},{self.kwargs_search["min_lat"]}],'
-                    + f'[{self.kwargs_search["max_lon"]},{self.kwargs_search["min_lat"]}],'
-                    + f'[{self.kwargs_search["max_lon"]},{self.kwargs_search["max_lat"]}],'
-                    + f'[{self.kwargs_search["min_lon"]},{self.kwargs_search["max_lat"]}],'
-                    + f'[{self.kwargs_search["min_lon"]},{self.kwargs_search["min_lat"]}]]]}}'
-                )
-                url += f"{url_add_box}"
+        if self.kwargs_search.keys() >= {"max_time", "min_time"}:
+            # convert input datetime to seconds since 1970
+            startDateTime = (
+                pd.Timestamp(self.kwargs_search["min_time"]).tz_localize("UTC")
+                - pd.Timestamp("1970-01-01 00:00").tz_localize("UTC")
+            ) // pd.Timedelta("1s")
+            endDateTime = (
+                pd.Timestamp(self.kwargs_search["max_time"]).tz_localize("UTC")
+                - pd.Timestamp("1970-01-01 00:00").tz_localize("UTC")
+            ) // pd.Timedelta("1s")
 
-            if self.kwargs_search.keys() >= {"max_time", "min_time"}:
-                # convert input datetime to seconds since 1970
-                startDateTime = (
-                    pd.Timestamp(self.kwargs_search["min_time"]).tz_localize("UTC")
-                    - pd.Timestamp("1970-01-01 00:00").tz_localize("UTC")
-                ) // pd.Timedelta("1s")
-                endDateTime = (
-                    pd.Timestamp(self.kwargs_search["max_time"]).tz_localize("UTC")
-                    - pd.Timestamp("1970-01-01 00:00").tz_localize("UTC")
-                ) // pd.Timedelta("1s")
+            # search by time
+            url_add_time = f"&startDateTime={startDateTime}&endDateTime={endDateTime}"
 
-                # search by time
-                url_add_time = (
-                    f"&startDateTime={startDateTime}&endDateTime={endDateTime}"
-                )
+            url += f"{url_add_time}"
 
-                url += f"{url_add_time}"
+        if "search_for" in self.kwargs_search:
+            url += f"&query={self.kwargs_search['search_for']}"
 
-            if "search_for" in self.kwargs_search:
-                url += f"&query={self.kwargs_search['search_for']}"
+        # if self.pglabel is not None:
 
-            if self.pglabel is not None:
+        # search by variable
+        if pglabel is not None:
+            url += f"&tag=Parameter+Group:{pglabel}"
 
-                # search by variable
-                url += f"&tag=Parameter+Group:{self.pglabel}"
+        # if requests.get(url).status_code != 200:
+        #     raise ValueError("")
 
-            # if requests.get(url).status_code != 200:
-            #     raise ValueError("")
+        if self.verbose:
+            print(f"search url: {url}")
 
-            if self.verbose:
-                print(f"search url: {url}")
+        return url
 
-            self._search_url = url
+    def get_search_urls(self) -> list:
+        """Gather all search urls for catalog.
 
-        return self._search_url
+        Returns
+        -------
+        list
+            List of search urls.
+        """
+
+        if self.pglabels is not None:
+            search_urls = []
+            for pglabel in self.pglabels:
+                # import pdb; pdb.set_trace()
+                search_urls.append(self.search_url(pglabel))
+        else:
+            search_urls = [self.search_url()]
+
+        return search_urls
 
     def _load_metadata(self, results) -> dict:  #: Dict[str, str]
         """Load metadata for catalog entry.
@@ -234,22 +254,43 @@ class AXDSCatalog(Catalog):
 
         return metadata
 
+    def _load_all_results(self):
+
+        all_results = []
+        for search_url in self.get_search_urls():
+            res = requests.get(search_url, headers=search_headers).json()
+            if "results" not in res:
+                raise ValueError("No results were returned for the search.")
+
+            if self.verbose:
+                print(
+                    f"For search url {search_url}, number of results found: {len(res['results'])}. Page size: {self.page_size}."
+                )
+
+            all_results.extend(res["results"])
+        return all_results
+
     def _load(self):
         """Find all dataset ids and create catalog."""
 
-        res = requests.get(self.search_url, headers=search_headers).json()
-
-        if "results" not in res:
-            raise ValueError("No results were returned for the search.")
+        results = self._load_all_results()
 
         if self.verbose:
+            unique = set([res["uuid"] for res in results])
             print(
-                f"Number of results found: {len(res['results'])}. Page size: {self.page_size}."
+                f"Total number of results found: {len(results)}, but unique results: {len(unique)}."
             )
 
         self._entries = {}
-        for results in res["results"]:
+        for results in results:
             dataset_id = results["uuid"]
+
+            # don't repeat an entry (it won't actually allow you to, but probably saves time not to try)
+            if dataset_id in self._entries:
+                continue
+
+            if self.verbose:
+                print(f"Dataset ID: {dataset_id}")
 
             # # quick check if OPENDAP is in the access methods for this uuid, otherwise move on
             # if self.datatype == "module":

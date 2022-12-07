@@ -57,17 +57,33 @@ def return_parameter_options() -> dict:
     return output
 
 
+def available_names() -> list:
+    """Return available parameterNames for variables.
+
+    Returns
+    -------
+    list
+        parametersNames, which are a superset of standard_names.
+    """
+
+    resp = return_parameter_options()
+    params = resp["parameters"]
+
+    # find parameterName options for AXDS. These are a superset of standard_names
+    names = [i["parameterName"] for i in params]
+
+    return names
+
+
 def match_key_to_parameter(
-    key_to_match: str,
+    keys_to_match: list,
     criteria: Optional[dict] = None,
 ) -> list:
-    """Find Parameter Group values that match key_to_match.
-
-    Currently only first value used.
+    """Find Parameter Group values that match keys_to_match.
 
     Parameters
     ----------
-    key_to_match : str
+    keys_to_match : list
         The custom_criteria key to narrow the search, which will be matched to the category results
         using the custom_criteria that must be set up ahead of time with `cf-pandas`.
     criteria : dict, optional
@@ -88,16 +104,61 @@ def match_key_to_parameter(
     group_params = resp["parameterGroups"]
 
     # select parameterName that matches selected key
-    var = cfp.match_criteria_key(names, key_to_match, criteria)
+    vars = cfp.match_criteria_key(names, keys_to_match, criteria)
 
     # find parametergroupid that matches var
-    pgids = [i["idParameterGroup"] for i in params if i["parameterName"] == var[0]]
-    pgid = pgids[0]
+    pgids = [
+        i["idParameterGroup"]
+        for var in vars
+        for i in params
+        if i["parameterName"] == var
+    ]
 
     # find parametergroup label to match id
-    pglabels = [i["label"] for i in group_params if i["id"] == pgid]
+    pglabels = [i["label"] for pgid in pgids for i in group_params if i["id"] == pgid]
 
-    return pglabels
+    return list(set(pglabels))
+
+
+def match_std_names_to_parameter(standard_names: list) -> list:
+    """Find Parameter Group values that match standard_names.
+
+    Parameters
+    ----------
+    standard_names : list
+        standard_names values to narrow the search.
+
+    Returns
+    -------
+    list
+        Parameter Group values that match standard_names.
+    """
+
+    resp = return_parameter_options()
+    params = resp["parameters"]
+
+    names = [i["parameterName"] for i in params]
+
+    if not all([std_name in names for std_name in standard_names]):
+        raise ValueError(
+            """Input standard_names are not all matches with system parameterNames.
+                          Check available values with `intake_axds.available_names()`."""
+        )
+
+    group_params = resp["parameterGroups"]
+
+    # find parametergroupid that matches std_name
+    pgids = [
+        i["idParameterGroup"]
+        for std_name in standard_names
+        for i in params
+        if i["parameterName"] == std_name
+    ]
+
+    # find parametergroup label to match id
+    pglabels = [i["label"] for pgid in pgids for i in group_params if i["id"] == pgid]
+
+    return list(set(pglabels))
 
 
 def return_docs_response(dataset_id: str) -> dict:
