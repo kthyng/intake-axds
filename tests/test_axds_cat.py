@@ -135,11 +135,13 @@ def test_axds_catalog_platform_search_for(mock_requests):
 
 
 @mock.patch("requests.get")
-def test_axds_catalog_platform_search_variable(mock_requests):
+def test_axds_catalog_platform_search_variable_vocab(mock_requests):
     """Test catalog with variable search."""
 
+    # need two fake responses, one for each search_url
     mock_requests.side_effect = [
         FakeResponseParams(),
+        FakeResponse(),
         FakeResponse(),
     ]
 
@@ -147,14 +149,49 @@ def test_axds_catalog_platform_search_variable(mock_requests):
         "wind": {
             "standard_name": "wind_gust_to_direction$",
         },
+        "humid": {"standard_name": "relative_humidity"},
     }
     cf_pandas.set_options(custom_criteria=criteria)
 
-    cat = AXDSCatalog(datatype="platform2", keys_to_match="wind")
+    cat = AXDSCatalog(keys_to_match=["wind", "humid"])
     assert list(cat) == ["test_platform_parquet", "test_platform_csv"]
     assert cat["test_platform_parquet"].describe()["args"]["urlpath"] == "fake.parquet"
-    assert cat.pglabels == ["Winds: Gusts"]
-    assert "Parameter+Group" in cat.get_search_urls()[0]
+    assert sorted(cat.pglabels) == ["Humidity: Relative Humidity", "Winds: Gusts"]
+    assert any(
+        ["&tag=Parameter+Group:Winds: Gusts" in url for url in cat.get_search_urls()]
+    )
+    assert any(
+        [
+            "&tag=Parameter+Group:Humidity: Relative Humidity" in url
+            for url in cat.get_search_urls()
+        ]
+    )
+
+
+@mock.patch("requests.get")
+def test_axds_catalog_platform_search_variable_std_name(mock_requests):
+    """Test catalog with variable search."""
+
+    # need two fake responses, one for each search_url
+    mock_requests.side_effect = [
+        FakeResponseParams(),
+        FakeResponse(),
+        FakeResponse(),
+    ]
+
+    cat = AXDSCatalog(standard_names=["relative_humidity", "wind_gust_to_direction"])
+    assert list(cat) == ["test_platform_parquet", "test_platform_csv"]
+    assert cat["test_platform_parquet"].describe()["args"]["urlpath"] == "fake.parquet"
+    assert sorted(cat.pglabels) == ["Humidity: Relative Humidity", "Winds: Gusts"]
+    assert any(
+        ["&tag=Parameter+Group:Winds: Gusts" in url for url in cat.get_search_urls()]
+    )
+    assert any(
+        [
+            "&tag=Parameter+Group:Humidity: Relative Humidity" in url
+            for url in cat.get_search_urls()
+        ]
+    )
 
 
 def test_invalid_kwarg_search():
@@ -208,4 +245,10 @@ def test_verbose(mock_requests, capfd):
 @mock.patch("requests.get")
 def test_no_results(mock_requests):
     with pytest.raises(ValueError):
-        AXDSCatalog(datatype="platform2")
+        AXDSCatalog()
+
+
+@mock.patch("requests.get")
+def test_not_a_standard_name(mock_requests):
+    with pytest.raises(ValueError):
+        AXDSCatalog(standard_names="not_a_standard_name")

@@ -9,6 +9,7 @@ from typing import MutableMapping, Optional, Union
 import pandas as pd
 import requests
 
+from cf_pandas import astype
 from intake.catalog.base import Catalog
 from intake.catalog.local import LocalCatalogEntry
 from intake.source.csv import CSVSource
@@ -16,7 +17,7 @@ from intake_parquet.source import ParquetSource
 from shapely import wkt
 
 from . import __version__
-from .utils import match_key_to_parameter
+from .utils import match_key_to_parameter, match_std_names_to_parameter
 
 
 search_headers = {"Accept": "application/json"}
@@ -35,7 +36,8 @@ class AXDSCatalog(Catalog):
     def __init__(
         self,
         datatype: str = "platform2",
-        keys_to_match: Optional[str] = None,
+        keys_to_match: Optional[Union[str, list]] = None,
+        standard_names: Optional[Union[str, list]] = None,
         kwargs_search: MutableMapping[str, Union[str, int, float]] = None,
         page_size: int = 10,
         verbose: bool = False,
@@ -51,8 +53,10 @@ class AXDSCatalog(Catalog):
         ----------
         datatype : str
             Axiom data type. Currently only "platform2" but eventually also "module". Platforms will be returned as dataframe containers.
-        keys_to_match : str, optional
-            Name of key to match with system-available variable parameterNames using criteria. Currently only 1 at a time.
+        keys_to_match : str, list, optional
+            Name of keys to match with system-available variable parameterNames using criteria. To filter search by variables, either input keys_to_match and a vocabulary or input standard_names.
+        standard_names : str, list, optional
+            Standard names to select from Axiom search parameterNames. To filter search by variables, either input keys_to_match and a vocabulary or input standard_names.
         kwargs_search : dict, optional
             Keyword arguments to input to search on the server before making the catalog. Options are:
             * to search by bounding box: include all of min_lon, max_lon, min_lat, max_lat: (int, float). Longitudes must be between -180 to +180.
@@ -104,10 +108,17 @@ class AXDSCatalog(Catalog):
             kwargs_search = {}
         self.kwargs_search = kwargs_search
 
+        # input keys_to_match OR standard_names but not both
+        if keys_to_match is not None and standard_names is not None:
+            raise ValueError(
+                "Input either `keys_to_match` or `standard_names` but not both."
+            )
+
         self.pglabels: Optional[list] = None
         if keys_to_match is not None:
-            # Currently just take first match, but there could be more than one.
-            self.pglabels = match_key_to_parameter(keys_to_match)
+            self.pglabels = match_key_to_parameter(astype(keys_to_match, list))
+        elif standard_names is not None:
+            self.pglabels = match_std_names_to_parameter(astype(standard_names, list))
 
         # Put together catalog-level stuff
         if metadata is None:
