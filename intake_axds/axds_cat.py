@@ -175,7 +175,8 @@ class AXDSCatalog(Catalog):
         # if self.pglabel is not None:
 
         # search by variable
-        url += f"&tag=Parameter+Group:{pglabel}"
+        if pglabel is not None:
+            url += f"&tag=Parameter+Group:{pglabel}"
 
         # if requests.get(url).status_code != 200:
         #     raise ValueError("")
