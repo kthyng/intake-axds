@@ -44,7 +44,7 @@ class AXDSCatalog(Catalog):
         name: str = "catalog",
         description: str = "Catalog of Axiom assets.",
         metadata: dict = None,
-        ttl: Optional[int] = None,
+        ttl: int = 86400,
         **kwargs,
     ):
         """Initialize an Axiom Catalog.
@@ -63,11 +63,11 @@ class AXDSCatalog(Catalog):
             * to search within a datetime range: include both of min_time, max_time: interpretable datetime string, e.g., "2021-1-1"
             * to search using a textual keyword: include `search_for` as a string.
         page_size : int, optional
-            Number of results. Default is 1000 but fewer is faster.
+            Number of results. Fewer is faster. Note that default is 10. Note that if you want to make sure you get all available datasets, you should input a large number like 50000.
         verbose : bool, optional
             Set to True for helpful information.
         ttl : int, optional
-            Time to live for catalog. How long before force-reloading catalog. Set to None to not do this.
+            Time to live for catalog (in seconds). How long before force-reloading catalog. Set to None to not do this. Currently default is set to a large number because the available version of intake does not have a change to accept None.
         name : str, optional
             Name for catalog.
         description : str, optional
@@ -97,12 +97,15 @@ class AXDSCatalog(Catalog):
                         f"If any of {check} are input, they all must be input."
                     )
 
-            min_lon, max_lon = kwargs_search["min_lon"], kwargs_search["max_lon"]
-            if isinstance(min_lon, (int, float)) and isinstance(max_lon, (int, float)):
-                if abs(min_lon) > 180 or abs(max_lon) > 180:
-                    raise ValueError(
-                        "`min_lon` and `max_lon` must be in the range -180 to 180."
-                    )
+            if "min_lon" in kwargs_search and "max_lon" in kwargs_search:
+                min_lon, max_lon = kwargs_search["min_lon"], kwargs_search["max_lon"]
+                if isinstance(min_lon, (int, float)) and isinstance(
+                    max_lon, (int, float)
+                ):
+                    if abs(min_lon) > 180 or abs(max_lon) > 180:
+                        raise ValueError(
+                            "`min_lon` and `max_lon` must be in the range -180 to 180."
+                        )
 
         else:
             kwargs_search = {}
@@ -260,7 +263,9 @@ class AXDSCatalog(Catalog):
         for search_url in self.get_search_urls():
             res = requests.get(search_url, headers=search_headers).json()
             if "results" not in res:
-                raise ValueError("No results were returned for the search.")
+                raise ValueError(
+                    f"No results were returned for the search. Search url: {search_url}."
+                )
 
             if self.verbose:
                 print(
