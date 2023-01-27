@@ -9,11 +9,17 @@ Welcome to intake-axds's documentation!
 Installation
 ------------
 
+To install from conda-forge:
+
+  >>> conda install -c intake-axds
+
 To install from PyPI:
   >>> pip install intake-axds
 
 .. toctree::
    :maxdepth: 2
+   :hidden:
+   :caption: User Documentation
 
    demo_overview.md
    api
@@ -21,11 +27,11 @@ To install from PyPI:
 
 
 
-Indices and tables
-==================
+.. Indices and tables
+.. ==================
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+.. * :ref:`genindex`
+.. * :ref:`modindex`
+.. * :ref:`search`
 
-.. _reStructuredText: https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html
+.. .. _reStructuredText: https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html
