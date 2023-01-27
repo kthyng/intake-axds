@@ -1,11 +1,10 @@
 """Utils to run."""
 
+from importlib.metadata import PackageNotFoundError, version
 from typing import Optional
 
 import cf_pandas as cfp
 import requests
-
-from importlib.metadata import PackageNotFoundError, version
 
 
 search_headers = {"Accept": "application/json"}
