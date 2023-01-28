@@ -26,17 +26,17 @@ import intake_axds  # isort:skip
 # -- Project information -----------------------------------------------------
 
 project = "intake-axds"
-copyright = "2022, Axiom Data Science"
+copyright = "2022–2023, Axiom Data Science"
 author = "Axiom Data Science"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 # see https://pypi.org/project/setuptools-scm/ for details
-from pkg_resources import get_distribution
+from importlib.metadata import version as imversion
 
 
-release = get_distribution("intake_axds").version
+release = imversion("intake-axds")
 # for example take major/minor
 version = ".".join(release.split(".")[:2])
 

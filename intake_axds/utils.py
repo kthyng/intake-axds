@@ -1,11 +1,10 @@
 """Utils to run."""
 
+from importlib.metadata import PackageNotFoundError, version
 from typing import Optional
 
 import cf_pandas as cfp
 import requests
-
-from pkg_resources import DistributionNotFound, get_distribution
 
 
 search_headers = {"Accept": "application/json"}
@@ -14,8 +13,8 @@ search_headers = {"Accept": "application/json"}
 def _get_version() -> str:
     """Fixes circular import issues."""
     try:
-        __version__ = get_distribution("intake-axds").version
-    except DistributionNotFound:
+        __version__ = version("ocean-model-skill-assessor")
+    except PackageNotFoundError:
         # package is not installed
         __version__ = "unknown"
 
