@@ -18,6 +18,7 @@ from shapely import wkt
 
 from . import __version__
 from .utils import match_key_to_parameter, match_std_names_to_parameter
+from .axds import AXDSSensorSource
 
 
 search_headers = {"Accept": "application/json"}
@@ -83,6 +84,10 @@ class AXDSCatalog(Catalog):
         self.kwargs_search = kwargs_search
         self.page_size = page_size
         self.verbose = verbose
+        
+        allowed_datatypes = ("platform2", "sensor_station")
+        if datatype not in allowed_datatypes:
+            raise KeyError(f"Datatype must be one of {allowed_datatypes} but is {datatype}")
 
         if kwargs_search is not None:
             checks = [
@@ -239,21 +244,66 @@ class AXDSCatalog(Catalog):
         # items = ["institution", "geospatial_bounds"]
         # values = itemgetter(*items)(results["source"]["meta"]["attributes"])
         # metadata.update(dict(zip(items, values)))
+        # import pdb; pdb.set_trace()
+        if self.datatype == "platform2":
+            metadata["institution"] = (
+                results["source"]["meta"]["attributes"]["institution"]
+                if "institution" in results["source"]["meta"]["attributes"]
+                else None
+            )
+            metadata["geospatial_bounds"] = results["source"]["meta"]["attributes"][
+                "geospatial_bounds"
+            ]
 
-        metadata["institution"] = (
-            results["source"]["meta"]["attributes"]["institution"]
-            if "institution" in results["source"]["meta"]["attributes"]
-            else None
-        )
-        metadata["geospatial_bounds"] = results["source"]["meta"]["attributes"][
-            "geospatial_bounds"
-        ]
+            p1 = wkt.loads(metadata["geospatial_bounds"])
+            keys = ["minLongitude", "minLatitude", "maxLongitude", "maxLatitude"]
+            metadata.update(dict(zip(keys, p1.bounds)))
 
-        p1 = wkt.loads(metadata["geospatial_bounds"])
-        keys = ["minLongitude", "minLatitude", "maxLongitude", "maxLatitude"]
-        metadata.update(dict(zip(keys, p1.bounds)))
+            metadata["variables"] = list(results["source"]["meta"]["variables"].keys())
+        
+        elif self.datatype == "sensor_station":
+            
+            # INSTITUTION?
+            # location is lon, lat, depth and type
+            # e.g. {'coordinates': [-123.711083, 38.914556, 0.0], 'type': 'Point'}
+            lon, lat, depth = results["source"]["location"]["coordinates"]
+            keys = ["minLongitude", "minLatitude", "maxLongitude", "maxLatitude"]
+            metadata.update(dict(zip(keys, [lon, lat, lon, lat])))
+            
+            # internal id?
+            # e.g. 106793
+            metadata["internal_id"] = results["source"]["id"]
+            
+            # Parameter group IDs is probably closest to variables
+            # e.g. [6, 7, 8, 9, 25, 26, 186]
+            # results["source"]["parameterGroupIds"]
+            
+            # variables, standard_names (or at least parameterNames)
+            # HERE SAVE VARIABLE NAMES
+            figs = results["source"]["figures"]
+            out = [(subPlot["datasetVariableId"], subPlot["parameterId"], subPlot["label"]) for fig in figs for subPlot in fig["plots"][0]["subPlots"]]
+            variables, parameterIds, labels = zip(*out)
+            metadata["variables"] = list(variables)
+            metadata["parameterIds"] = list(parameterIds)
+            metadata["labels"] = list(labels)
 
-        metadata["variables"] = list(results["source"]["meta"]["variables"].keys())
+            # # HERE SAVE STRUCTURE OF PARAMETER GROUP, PARAMETER IDS, UNITS, NAMES
+            # import pdb; pdb.set_trace()
+            # meta_structs = []
+            # for fig in figs:
+            #     meta_struct = {}
+            #     meta_struct["parameterGroupId"] = fig["parameterGroupId"]
+            #     meta_struct["label"] = fig["label"]
+            #     paramids = []
+            #     for subPlot in fig["plots"][0]["subPlots"]:
+            #         paramids.append(subPlot["parameterId"])
+            #     meta_struct["parameterId"] = paramids
+            #     # ALSO VAR NAME AND UNITS
+                
+            # print([(fig["parameterGroupId"], subPlot["parameterId"]) for fig in figs for subPlot in fig["plots"][0]["subPlots"]])
+            
+            # also save units here
+            
 
         return metadata
 
@@ -287,8 +337,8 @@ class AXDSCatalog(Catalog):
             )
 
         self._entries = {}
-        for results in results:
-            dataset_id = results["uuid"]
+        for result in results:
+            dataset_id = result["uuid"]
 
             # don't repeat an entry (it won't actually allow you to, but probably saves time not to try)
             if dataset_id in self._entries:
@@ -296,6 +346,12 @@ class AXDSCatalog(Catalog):
 
             if self.verbose:
                 print(f"Dataset ID: {dataset_id}")
+                
+            # don't include V1 stations
+            if result["data"]["version"] == 1:
+                if self.verbose:
+                    print(f"Station with dataset_id {dataset_id} is V1 so is being skipped.")
+                continue
 
             # # quick check if OPENDAP is in the access methods for this uuid, otherwise move on
             # if self.datatype == "module":
@@ -318,6 +374,12 @@ class AXDSCatalog(Catalog):
             #         continue
 
             description = f"AXDS dataset_id {dataset_id} of datatype {self.datatype}"
+            
+            metadata = self._load_metadata(result)
+            
+            # don't save Camera sensor data for now
+            if "webcam" in metadata["variables"]:
+                continue
 
             # Find urlpath
             if self.datatype == "platform2":
@@ -325,14 +387,25 @@ class AXDSCatalog(Catalog):
                 try:
                     key = [
                         key
-                        for key in results["source"]["files"].keys()
+                        for key in result["source"]["files"].keys()
                         if ".parquet" in key
                     ][0]
-                    urlpath = results["source"]["files"][key]["url"]
+                    urlpath = result["source"]["files"][key]["url"]
                     plugin = ParquetSource
                 except Exception:
-                    urlpath = results["source"]["files"]["data.csv.gz"]["url"]
+                    urlpath = result["source"]["files"]["data.csv.gz"]["url"]
                     plugin = CSVSource
+
+                args = {
+                    "urlpath": urlpath,
+                }
+            
+            # this Source has different arg requirements
+            elif self.datatype == "sensor_station":
+                args = {"dataset_id": dataset_id,
+                        "internal_id": metadata["internal_id"],
+                        "kwargs_search": self.kwargs_search,}
+                plugin = AXDSSensorSource
 
             # elif self.datatype == "module":
             #     plugin = NetCDFSource  # 'netcdf'
@@ -381,9 +454,6 @@ class AXDSCatalog(Catalog):
             #     # start_time, end_time = results["data"]["start_time_utc"], results["data"]["end_time_utc"]
             #     # # there are description and label too but are they the same for module and layer_group?
 
-            args = {
-                "urlpath": urlpath,
-            }
 
             entry = LocalCatalogEntry(
                 name=dataset_id,
@@ -391,7 +461,7 @@ class AXDSCatalog(Catalog):
                 driver=plugin,
                 direct_access="allow",
                 args=args,
-                metadata=self._load_metadata(results),
+                metadata=metadata,
                 # True,
                 # args,
                 # {},
