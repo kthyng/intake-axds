@@ -8,7 +8,7 @@ from typing import List, MutableMapping, Optional, Union
 
 import pandas as pd
 import requests
-
+from datetime import datetime
 from cf_pandas import astype
 from intake.catalog.base import Catalog
 from intake.catalog.local import LocalCatalogEntry
@@ -39,6 +39,8 @@ class AXDSCatalog(Catalog):
         datatype: str = "platform2",
         keys_to_match: Optional[Union[str, list]] = None,
         standard_names: Optional[Union[str, list]] = None,
+        start_time: Optional[Union[datetime, str]] = None,
+        end_time: Optional[Union[datetime, str]] = None,
         kwargs_search: MutableMapping[str, Union[str, int, float]] = None,
         qartod: Union[bool,int,List[int]] = False,
         use_units: bool = True,
@@ -51,6 +53,8 @@ class AXDSCatalog(Catalog):
         **kwargs,
     ):
         """Initialize an Axiom Catalog.
+        
+        datatype of sensor_station skips webcam data.
 
         Parameters
         ----------
@@ -60,6 +64,10 @@ class AXDSCatalog(Catalog):
             Name of keys to match with system-available variable parameterNames using criteria. To filter search by variables, either input keys_to_match and a vocabulary or input standard_names.
         standard_names : str, list, optional
             Standard names to select from Axiom search parameterNames. To filter search by variables, either input keys_to_match and a vocabulary or input standard_names.
+        start_time : str, datetime, optional
+            For explicit search queries for datasets that contain data after `start_time`. Must include end_time if include start_time.
+        end_time : str, datetime, optional
+            For explicit search queries for datasets that contain data before `end_time`. Must include start_time if include end_time.
         kwargs_search : dict, optional
             Keyword arguments to input to search on the server before making the catalog. Options are:
             * to search by bounding box: include all of min_lon, max_lon, min_lat, max_lat: (int, float). Longitudes must be between -180 to +180.
@@ -84,7 +92,7 @@ class AXDSCatalog(Catalog):
             * 9: Missing Data
         
         use_units : bool, optional
-            If True include units in column names. Syntax is "standard_name [units]". If False, no units. Then syntax for column names is "standard_name".
+            If True include units in column names. Syntax is "standard_name [units]". If False, no units. Then syntax for column names is "standard_name". This is currently specific to sensor_station only.
         page_size : int, optional
             Number of results. Fewer is faster. Note that default is 10. Note that if you want to make sure you get all available datasets, you should input a large number like 50000.
         verbose : bool, optional
@@ -139,6 +147,29 @@ class AXDSCatalog(Catalog):
         else:
             kwargs_search = {}
         self.kwargs_search = kwargs_search
+
+        # can instead input the kwargs_search outside of that dictionary
+        if start_time is not None:
+            if end_time is None:
+                raise ValueError("Since start_time is not None, end_time also must not be None.")
+            if not isinstance(start_time, (str, datetime)):
+                raise TypeError(
+                    f"Expecting a datetime for start_time argument: {repr(start_time)}"
+                )
+            # if isinstance(start_time, str):
+            #     start_time = pd.Timestamp(start_time)#.strptime(start_time, "%Y-%m-%dT%H:%M:%SZ")
+            self.kwargs_search["min_time"] = start_time# f"{start_time:%Y-%m-%dT%H:%M:%S}"
+
+        if end_time is not None:
+            if start_time is None:
+                raise ValueError("Since end_time is not None, start_time also must not be None.")
+            if not isinstance(end_time, (str, datetime)):
+                raise TypeError(
+                    f"Expecting a datetime for end_time argument: {repr(end_time)}"
+                )
+            # if isinstance(end_time, str):
+            #     end_time = pd.Timestamp(end_time)#.strptime(end_time, "%Y-%m-%dT%H:%M:%SZ")
+            self.kwargs_search["max_time"] = end_time# f"{end_time:%Y-%m-%dT%H:%M:%S}"
 
         # input keys_to_match OR standard_names but not both
         if keys_to_match is not None and standard_names is not None:
