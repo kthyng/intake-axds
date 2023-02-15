@@ -7,9 +7,9 @@ import pandas as pd
 search_headers = {"Accept": "application/json"}
 baseurl = "https://sensors.axds.co/api"
 
-def make_label(label, units):
+def make_label(label, units, use_units=True):
     """make label."""
-    if units is None:
+    if units is None or not use_units:
         return f"{label}"
     else:
         return f"{label} [{units}]"
@@ -34,16 +34,18 @@ class AXDSSensorSource(base.DataSource):
     partition_access = True
     
     
-    def __init__(self, dataset_id, kwargs_search, internal_id, metadata={}):
+    def __init__(self, dataset_id, kwargs_search, internal_id, qartod, use_units, metadata={}):
         self.url_search_base = "https://search.axds.co/v2/search?portalId=-1&page=1&pageSize=10000&verbose=true"
         self.url_docs_base = "https://search.axds.co/v2/docs?verbose=true"
         self.dataset_id = dataset_id
         self.kwargs_search = kwargs_search
         self.internal_id = internal_id
-#         self.axds_type = 'platform2'
+        self.qartod = qartod
+        self.use_units = use_units
 
 #         self._variables = variables
         self._dataframe = None
+        # import pdb; pdb.set_trace()
 
         super(AXDSSensorSource, self).__init__(metadata=metadata)
     
@@ -92,13 +94,13 @@ class AXDSSensorSource(base.DataSource):
             
             # indices first: time and potentially z
             feed_ind = feed["metadata"]["time"]
-            feed_ind["column_name"] = make_label(feed_ind["label"], feed_ind.get("units", None)) 
+            feed_ind["column_name"] = make_label(feed_ind["label"], feed_ind.get("units", None), use_units=self.use_units) 
             indices[feed_ind["index"]] = feed_ind
             
             # in this case, z or depth is also an index
             if feed["metadata"]["z"] is not None:
                 feed_ind = feed["metadata"]["z"]
-                feed_ind["column_name"] = make_label(feed_ind["label"], feed_ind.get("units", None)) 
+                feed_ind["column_name"] = make_label(feed_ind["label"], feed_ind.get("units", None), use_units=self.use_units) 
                 indices[feed_ind["index"]] = feed_ind
 
             # These should never be non-None for sensors
@@ -114,14 +116,14 @@ class AXDSSensorSource(base.DataSource):
                 label = [var for var in self.metadata["variables_details"] if self.metadata["variables_details"][var]["deviceId"] == data_cols[index]["deviceId"]][0]
                 data_cols[index]["label"] = label
                 # column name
-                data_cols[index]["column_name"] = make_label(label, data_cols[index].get("units",None))
+                data_cols[index]["column_name"] = make_label(label, data_cols[index].get("units",None), use_units=self.use_units)
 
             columns.update(data_cols)
                         
             # whether or not to read in QARTOD Aggregation flags is chosen at the catalog level in axds_cat.py
             # columns only includes the QA column info if qartod is True
             # or, include QARTOD columns but then remove data rows based on the flag values.
-            qartod = self.cat.metadata["qartod"]
+            qartod = self.qartod
             if isinstance(qartod, (str,list)) or qartod:
             
                 # add qartod columns
@@ -136,10 +138,7 @@ class AXDSSensorSource(base.DataSource):
                     name = [data_cols[ind]["column_name"] for ind in data_cols if data_cols[ind]["deviceId"] == qa_cols[index]["deviceId"]][0]
                     qa_cols[index]["data_name"] = name
                     columns.update(qa_cols)
-        
-            # col_names = [make_label(columns[i]["label"], columns[i].get("units",None)) for i in list(columns)]
-            # ind_names = [make_label(indices[i]["label"], indices[i].get("units",None)) for i in list(indices)]
-            
+                    
             col_names = [columns[i]["column_name"] for i in list(columns)]
             ind_names = [indices[i]["column_name"] for i in list(indices)]
             

@@ -41,6 +41,7 @@ class AXDSCatalog(Catalog):
         standard_names: Optional[Union[str, list]] = None,
         kwargs_search: MutableMapping[str, Union[str, int, float]] = None,
         qartod: Union[bool,int,List[int]] = False,
+        use_units: bool = True,
         page_size: int = 10,
         verbose: bool = False,
         name: str = "catalog",
@@ -81,7 +82,9 @@ class AXDSCatalog(Catalog):
             * 3: Suspect
             * 4: Fail
             * 9: Missing Data
-
+        
+        use_units : bool, optional
+            If True include units in column names. Syntax is "standard_name [units]". If False, no units. Then syntax for column names is "standard_name".
         page_size : int, optional
             Number of results. Fewer is faster. Note that default is 10. Note that if you want to make sure you get all available datasets, you should input a large number like 50000.
         verbose : bool, optional
@@ -103,6 +106,8 @@ class AXDSCatalog(Catalog):
         self.kwargs_search = kwargs_search
         self.page_size = page_size
         self.verbose = verbose
+        self.qartod = qartod
+        self.use_units = use_units
         
         allowed_datatypes = ("platform2", "sensor_station")
         if datatype not in allowed_datatypes:
@@ -152,7 +157,8 @@ class AXDSCatalog(Catalog):
             metadata = {}
             metadata["kwargs_search"] = self.kwargs_search
             metadata["pglabels"] = self.pglabels
-            metadata["qartod"] = qartod
+            # metadata["qartod"] = qartod
+            # metadata["use_units"] = use_units
 
         super(AXDSCatalog, self).__init__(
             **kwargs, ttl=ttl, name=name, description=description, metadata=metadata
@@ -443,7 +449,10 @@ class AXDSCatalog(Catalog):
             elif self.datatype == "sensor_station":
                 args = {"dataset_id": dataset_id,
                         "internal_id": metadata["internal_id"],
-                        "kwargs_search": self.kwargs_search,}
+                        "kwargs_search": self.kwargs_search,
+                        "qartod": self.qartod,
+                        "use_units": self.use_units,
+                        }
                 plugin = AXDSSensorSource
 
             # elif self.datatype == "module":
