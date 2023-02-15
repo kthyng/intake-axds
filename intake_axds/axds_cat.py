@@ -40,6 +40,7 @@ class AXDSCatalog(Catalog):
         keys_to_match: Optional[Union[str, list]] = None,
         standard_names: Optional[Union[str, list]] = None,
         kwargs_search: MutableMapping[str, Union[str, int, float]] = None,
+        qartod: bool = False,
         page_size: int = 10,
         verbose: bool = False,
         name: str = "catalog",
@@ -63,6 +64,8 @@ class AXDSCatalog(Catalog):
             * to search by bounding box: include all of min_lon, max_lon, min_lat, max_lat: (int, float). Longitudes must be between -180 to +180.
             * to search within a datetime range: include both of min_time, max_time: interpretable datetime string, e.g., "2021-1-1"
             * to search using a textual keyword: include `search_for` as a string.
+        qartod : bool, optional
+            Whether to return QARTOD agg flags when available, which is only for sensor_stations.
         page_size : int, optional
             Number of results. Fewer is faster. Note that default is 10. Note that if you want to make sure you get all available datasets, you should input a large number like 50000.
         verbose : bool, optional
@@ -133,6 +136,7 @@ class AXDSCatalog(Catalog):
             metadata = {}
             metadata["kwargs_search"] = self.kwargs_search
             metadata["pglabels"] = self.pglabels
+            metadata["qartod"] = qartod
 
         super(AXDSCatalog, self).__init__(
             **kwargs, ttl=ttl, name=name, description=description, metadata=metadata
@@ -281,29 +285,46 @@ class AXDSCatalog(Catalog):
             # variables, standard_names (or at least parameterNames)
             # HERE SAVE VARIABLE NAMES
             figs = results["source"]["figures"]
-            out = [(subPlot["datasetVariableId"], subPlot["parameterId"], subPlot["label"]) for fig in figs for subPlot in fig["plots"][0]["subPlots"]]
-            variables, parameterIds, labels = zip(*out)
-            metadata["variables"] = list(variables)
-            metadata["parameterIds"] = list(parameterIds)
-            metadata["labels"] = list(labels)
-
-            # # HERE SAVE STRUCTURE OF PARAMETER GROUP, PARAMETER IDS, UNITS, NAMES
-            # import pdb; pdb.set_trace()
-            # meta_structs = []
-            # for fig in figs:
-            #     meta_struct = {}
-            #     meta_struct["parameterGroupId"] = fig["parameterGroupId"]
-            #     meta_struct["label"] = fig["label"]
-            #     paramids = []
-            #     for subPlot in fig["plots"][0]["subPlots"]:
-            #         paramids.append(subPlot["parameterId"])
-            #     meta_struct["parameterId"] = paramids
-            #     # ALSO VAR NAME AND UNITS
-                
-            # print([(fig["parameterGroupId"], subPlot["parameterId"]) for fig in figs for subPlot in fig["plots"][0]["subPlots"]])
             
+            # add a section of metadata that has all details for API            
+            
+            # KEEP VARIABLES NAMES
+            # out = [(fig["label"], fig["parameterGroupId"]) for fig in figs]
+            # import pdb; pdb.set_trace()
+            out = {subPlot["datasetVariableId"]: {"parameterGroupLabel": fig["label"], 
+                                                  "parameterGroupId": fig["parameterGroupId"], 
+                                                  "datasetVariableId": subPlot["datasetVariableId"], 
+                                                  "parameterId": subPlot["parameterId"],
+                                                  "label": subPlot["label"],
+                                                  "deviceId": subPlot["deviceId"]}
+                   for fig in figs for plot in fig["plots"] for subPlot in plot["subPlots"]}
+            metadata["variables_details"] = out
+            metadata["variables"] = list(out.keys())
+            
+            # include datumConversion info if present
+            if len(results["data"]["datumConversions"]) > 0:
+                metadata["datumConversions"] = results["data"]["datumConversions"]
+            
+            # # out = [(fig["label"], fig["parameterGroupId"], subPlot["datasetVariableId"], subPlot["parameterId"], subPlot["label"], subPlot["deviceId"]) for fig in figs for plot in fig["plots"] for subPlot in plot["subPlots"]]
+            # # out = [(fig["label"], fig["parameterGroupId"], subPlot["datasetVariableId"], subPlot["parameterId"], subPlot["label"], subPlot["deviceId"]) for fig in figs for subPlot in fig["plots"][0]["subPlots"]]
+            # pglabels, pgids, variables, parameterIds, labels, deviceIds = zip(*out)
+            # metadata["pglabels"] = list(pglabels)
+            # metadata["pgids"] = list(pgids)
+            # metadata["variables"] = list(variables)
+            # metadata["parameterIds"] = list(parameterIds)
+            # metadata["labels"] = list(labels)
+            # metadata["deviceIds"] = list(deviceIds)
+            
+            filter = f"%7B%22stations%22:%5B%22{metadata['internal_id']}%22%5D%7D"
+            baseurl = "https://sensors.axds.co/api"
+            metadata_url = f"{baseurl}/metadata/filter/custom?filter={filter}"
+            metadata["metadata_url"] = metadata_url
+
             # also save units here
             
+            # 1 or 2?
+            metadata["version"] = results["data"]["version"]
+            # import pdb; pdb.set_trace()
 
         return metadata
 
@@ -347,11 +368,11 @@ class AXDSCatalog(Catalog):
             if self.verbose:
                 print(f"Dataset ID: {dataset_id}")
                 
-            # don't include V1 stations
-            if result["data"]["version"] == 1:
-                if self.verbose:
-                    print(f"Station with dataset_id {dataset_id} is V1 so is being skipped.")
-                continue
+            # # don't include V1 stations
+            # if result["data"]["version"] == 1:
+            #     if self.verbose:
+            #         print(f"Station with dataset_id {dataset_id} is V1 so is being skipped.")
+            #     continue
 
             # # quick check if OPENDAP is in the access methods for this uuid, otherwise move on
             # if self.datatype == "module":
@@ -379,6 +400,8 @@ class AXDSCatalog(Catalog):
             
             # don't save Camera sensor data for now
             if "webcam" in metadata["variables"]:
+                if self.verbose:
+                    print(f"Dataset_id {dataset_id} is a webcam so is being skipped.")
                 continue
 
             # Find urlpath
