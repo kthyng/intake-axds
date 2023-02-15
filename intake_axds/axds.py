@@ -167,8 +167,15 @@ class AXDSSensorSource(base.DataSource):
                 df.drop(labels=qa_name, axis=1, inplace=True)
                                 
             dfs.append(df)
+        # df = pd.concat(dfs, axis=1)
+        # dfs[0].join(dfs[1:], how='outer', sort=True)
+
+        df = dfs[0]
+        # this gets different and I think better results than dfs[0].join(dfs[1:], how="outer", sort=True)
+        # even though they should probably return the same thing.
+        for i in range(1, len(dfs)):
+            df = df.join(dfs[i], how='outer', sort=True) 
         # import pdb; pdb.set_trace()
-        df = pd.concat(dfs, axis=1)
         return df
 
     def _load(self):
