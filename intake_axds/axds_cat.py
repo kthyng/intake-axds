@@ -4,7 +4,7 @@ Set up a catalog for Axiom assets.
 
 
 from operator import itemgetter
-from typing import MutableMapping, Optional, Union
+from typing import List, MutableMapping, Optional, Union
 
 import pandas as pd
 import requests
@@ -40,7 +40,7 @@ class AXDSCatalog(Catalog):
         keys_to_match: Optional[Union[str, list]] = None,
         standard_names: Optional[Union[str, list]] = None,
         kwargs_search: MutableMapping[str, Union[str, int, float]] = None,
-        qartod: bool = False,
+        qartod: Union[bool,int,List[int]] = False,
         page_size: int = 10,
         verbose: bool = False,
         name: str = "catalog",
@@ -64,8 +64,24 @@ class AXDSCatalog(Catalog):
             * to search by bounding box: include all of min_lon, max_lon, min_lat, max_lat: (int, float). Longitudes must be between -180 to +180.
             * to search within a datetime range: include both of min_time, max_time: interpretable datetime string, e.g., "2021-1-1"
             * to search using a textual keyword: include `search_for` as a string.
-        qartod : bool, optional
-            Whether to return QARTOD agg flags when available, which is only for sensor_stations.
+        qartod : bool, int, list, optional
+            Whether to return QARTOD agg flags when available, which is only for sensor_stations. Can instead input an int or a list of ints representing the _qa_agg flags for which to return data values. More information about QARTOD testing and flags can be found here: https://cdn.ioos.noaa.gov/media/2020/07/QARTOD-Data-Flags-Manual_version1.2final.pdf. 
+            
+            Examples of ways to use this input are:
+            
+            * ``qartod=True``: Return aggregate QARTOD flags as a column for each data variable.
+            * ``qartod=False``: Do not return any QARTOD flag columns.
+            * ``qartod=1``: nan any data values for which the aggregated QARTOD flags are not equal to 1.
+            * ``qartod=[1,3]``: nan any data values for which the aggregated QARTOD flags are not equal to 1 or 3.
+            
+            Flags are:
+            
+            * 1: Pass
+            * 2: Not Evaluated
+            * 3: Suspect
+            * 4: Fail
+            * 9: Missing Data
+
         page_size : int, optional
             Number of results. Fewer is faster. Note that default is 10. Note that if you want to make sure you get all available datasets, you should input a large number like 50000.
         verbose : bool, optional

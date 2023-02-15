@@ -91,11 +91,16 @@ class AXDSSensorSource(base.DataSource):
             indices = {}  # indices for dataframe
             
             # indices first: time and potentially z
-            indices[feed["metadata"]["time"]["index"]] = feed["metadata"]["time"]
+            feed_ind = feed["metadata"]["time"]
+            feed_ind["column_name"] = make_label(feed_ind["label"], feed_ind.get("units", None)) 
+            indices[feed_ind["index"]] = feed_ind
             
             # in this case, z or depth is also an index
             if feed["metadata"]["z"] is not None:
-                indices[feed["metadata"]["z"]["index"]] = feed["metadata"]["z"]
+                feed_ind = feed["metadata"]["z"]
+                feed_ind["column_name"] = make_label(feed_ind["label"], feed_ind.get("units", None)) 
+                indices[feed_ind["index"]] = feed_ind
+
             # These should never be non-None for sensors
             if feed["metadata"]["lon"] is not None or feed["metadata"]["lat"] is not None:
                 lon, lat = feed["metadata"]["lon"], feed["metadata"]["lat"]
@@ -105,29 +110,62 @@ class AXDSSensorSource(base.DataSource):
             data_cols = {val["index"]: val for val in feed["metadata"]["values"]}
             # match variable name from metadata (standard_name) to be column name
             for index in data_cols:
-                data_cols[index]["label"] = [var for var in self.metadata["variables_details"] if self.metadata["variables_details"][var]["deviceId"] == data_cols[index]["deviceId"]][0]
-            #     which_index = [i for i, parid in enumerate(self.metadata["parameterIds"]) if data_cols[index]["parameterId"] == parid][0]
-            #     data_cols[index]["label"] = self.metadata["variables"][which_index]            
+                # variable name
+                label = [var for var in self.metadata["variables_details"] if self.metadata["variables_details"][var]["deviceId"] == data_cols[index]["deviceId"]][0]
+                data_cols[index]["label"] = label
+                # column name
+                data_cols[index]["column_name"] = make_label(label, data_cols[index].get("units",None))
+
             columns.update(data_cols)
+                        
+            # whether or not to read in QARTOD Aggregation flags is chosen at the catalog level in axds_cat.py
+            # columns only includes the QA column info if qartod is True
+            # or, include QARTOD columns but then remove data rows based on the flag values.
+            qartod = self.cat.metadata["qartod"]
+            if isinstance(qartod, (str,list)) or qartod:
+            
+                # add qartod columns
+                qa_cols = {val["index"]: val for val in feed["metadata"]["qcAgg"]}
+                # match variable name using deviceId from metadata (standard_name) to be column name
+                for index in qa_cols:
+                    label = [var for var in self.metadata["variables_details"] if self.metadata["variables_details"][var]["deviceId"] == qa_cols[index]["deviceId"]][0]
+                    qa_cols[index]["label"] = f"{label}_qc_agg"
+                    qa_cols[index]["column_name"] = qa_cols[index]["label"]
+                    # import pdb; pdb.set_trace()
+                    # match deviceId between data_col and qa_col to get column name associated with qa_col
+                    name = [data_cols[ind]["column_name"] for ind in data_cols if data_cols[ind]["deviceId"] == qa_cols[index]["deviceId"]][0]
+                    qa_cols[index]["data_name"] = name
+                    columns.update(qa_cols)
+        
+            # col_names = [make_label(columns[i]["label"], columns[i].get("units",None)) for i in list(columns)]
+            # ind_names = [make_label(indices[i]["label"], indices[i].get("units",None)) for i in list(indices)]
+            
+            col_names = [columns[i]["column_name"] for i in list(columns)]
+            ind_names = [indices[i]["column_name"] for i in list(indices)]
             
             # import pdb; pdb.set_trace()  
-            # add qartod columns
-            qa_cols = {val["index"]: val for val in feed["metadata"]["qcAgg"]}
-            # match variable name using deviceId from metadata (standard_name) to be column name
-            for index in qa_cols:
-                label = [var for var in self.metadata["variables_details"] if self.metadata["variables_details"][var]["deviceId"] == qa_cols[index]["deviceId"]][0]
-                qa_cols[index]["label"] = f"{label}_qc_agg"
-            # for index in qa_cols:
-            #     which_index = [i for i, parid in enumerate(self.metadata["deviceIds"]) if qa_cols[index]["deviceId"] == parid][0]
-            #     qa_cols[index]["label"] = f"{self.metadata['variables'][which_index]}_qc_agg"
-            columns.update(qa_cols)
-            # col_names = [make_label("", columns[i]["units"]) for i in range(len(columns))]
-            col_names = [make_label(columns[i]["label"], columns[i].get("units",None)) for i in list(columns)]
-            ind_names = [make_label(indices[i]["label"], indices[i].get("units",None)) for i in list(indices)]
-            
-            df = pd.DataFrame(feed["data"], columns=ind_names + col_names)
+            # do this in steps in case we are dropping QA columns
+            df = pd.DataFrame(feed["data"])
+            icolumns_to_keep = list(indices) + list(columns)
+            df = df[icolumns_to_keep]
+            df.columns = ind_names + col_names
             df.set_index(ind_names, inplace=True)
-            
+
+            # nan data for which QARTOD flags shouldn't be included
+            if isinstance(qartod, (str,list)):
+                if isinstance(qartod,str):
+                    qartod = [qartod]
+                
+                for ind in qa_cols:
+                    data_name = qa_cols[ind]["data_name"]  # data column name
+                    qa_name = qa_cols[ind]["column_name"]  # qa column name
+                    
+                    for qa in qartod:
+                        df.loc[df[qa_name] != qa, data_name] = pd.NA
+                
+                # drop qartod columns
+                df.drop(labels=qa_name, axis=1, inplace=True)
+                                
             dfs.append(df)
         # import pdb; pdb.set_trace()
         df = pd.concat(dfs, axis=1)
