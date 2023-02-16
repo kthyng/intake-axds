@@ -3,7 +3,6 @@ Set up a catalog for Axiom assets.
 """
 
 
-from operator import itemgetter
 from typing import List, MutableMapping, Optional, Tuple, Union
 
 import pandas as pd
@@ -14,10 +13,9 @@ from intake.catalog.base import Catalog
 from intake.catalog.local import LocalCatalogEntry
 from intake.source.csv import CSVSource
 from intake_parquet.source import ParquetSource
-from shapely import wkt
 
 from . import __version__
-from .utils import match_key_to_parameter, match_std_names_to_parameter
+from .utils import load_metadata, match_key_to_parameter, match_std_names_to_parameter
 from .axds import AXDSSensorSource
 
 
@@ -297,117 +295,6 @@ class AXDSCatalog(Catalog):
 
         return search_urls
 
-    def _load_metadata(self, results) -> dict:  #: Dict[str, str]
-        """Load metadata for catalog entry.
-
-        Parameters
-        ----------
-        results : dict
-            Returned results from call to server for a single dataset.
-
-        Returns
-        -------
-        dict
-            Metadata to store with catalog entry.
-        """
-
-        # matching names in intake-erddap
-        keys = ["datasetID", "title", "summary", "type", "minTime", "maxTime"]
-        # names of keys in Axiom system.
-        items = [
-            "uuid",
-            "label",
-            "description",
-            "type",
-            "start_date_time",
-            "end_date_time",
-        ]
-        values = itemgetter(*items)(results)
-        metadata = dict(zip(keys, values))
-
-        # items = ["institution", "geospatial_bounds"]
-        # values = itemgetter(*items)(results["source"]["meta"]["attributes"])
-        # metadata.update(dict(zip(items, values)))
-        # import pdb; pdb.set_trace()
-        if self.datatype == "platform2":
-            metadata["institution"] = (
-                results["source"]["meta"]["attributes"]["institution"]
-                if "institution" in results["source"]["meta"]["attributes"]
-                else None
-            )
-            metadata["geospatial_bounds"] = results["source"]["meta"]["attributes"][
-                "geospatial_bounds"
-            ]
-
-            p1 = wkt.loads(metadata["geospatial_bounds"])
-            keys = ["minLongitude", "minLatitude", "maxLongitude", "maxLatitude"]
-            metadata.update(dict(zip(keys, p1.bounds)))
-
-            metadata["variables"] = list(results["source"]["meta"]["variables"].keys())
-        
-        elif self.datatype == "sensor_station":
-            
-            # INSTITUTION?
-            # location is lon, lat, depth and type
-            # e.g. {'coordinates': [-123.711083, 38.914556, 0.0], 'type': 'Point'}
-            lon, lat, depth = results["source"]["location"]["coordinates"]
-            keys = ["minLongitude", "minLatitude", "maxLongitude", "maxLatitude"]
-            metadata.update(dict(zip(keys, [lon, lat, lon, lat])))
-            
-            # internal id?
-            # e.g. 106793
-            metadata["internal_id"] = results["source"]["id"]
-            
-            # Parameter group IDs is probably closest to variables
-            # e.g. [6, 7, 8, 9, 25, 26, 186]
-            # results["source"]["parameterGroupIds"]
-            
-            # variables, standard_names (or at least parameterNames)
-            # HERE SAVE VARIABLE NAMES
-            figs = results["source"]["figures"]
-            
-            # add a section of metadata that has all details for API            
-            
-            # KEEP VARIABLES NAMES
-            # out = [(fig["label"], fig["parameterGroupId"]) for fig in figs]
-            # import pdb; pdb.set_trace()
-            out = {subPlot["datasetVariableId"]: {"parameterGroupLabel": fig["label"], 
-                                                  "parameterGroupId": fig["parameterGroupId"], 
-                                                  "datasetVariableId": subPlot["datasetVariableId"], 
-                                                  "parameterId": subPlot["parameterId"],
-                                                  "label": subPlot["label"],
-                                                  "deviceId": subPlot["deviceId"]}
-                   for fig in figs for plot in fig["plots"] for subPlot in plot["subPlots"]}
-            metadata["variables_details"] = out
-            metadata["variables"] = list(out.keys())
-            
-            # include datumConversion info if present
-            if len(results["data"]["datumConversions"]) > 0:
-                metadata["datumConversions"] = results["data"]["datumConversions"]
-            
-            # # out = [(fig["label"], fig["parameterGroupId"], subPlot["datasetVariableId"], subPlot["parameterId"], subPlot["label"], subPlot["deviceId"]) for fig in figs for plot in fig["plots"] for subPlot in plot["subPlots"]]
-            # # out = [(fig["label"], fig["parameterGroupId"], subPlot["datasetVariableId"], subPlot["parameterId"], subPlot["label"], subPlot["deviceId"]) for fig in figs for subPlot in fig["plots"][0]["subPlots"]]
-            # pglabels, pgids, variables, parameterIds, labels, deviceIds = zip(*out)
-            # metadata["pglabels"] = list(pglabels)
-            # metadata["pgids"] = list(pgids)
-            # metadata["variables"] = list(variables)
-            # metadata["parameterIds"] = list(parameterIds)
-            # metadata["labels"] = list(labels)
-            # metadata["deviceIds"] = list(deviceIds)
-            
-            filter = f"%7B%22stations%22:%5B%22{metadata['internal_id']}%22%5D%7D"
-            baseurl = "https://sensors.axds.co/api"
-            metadata_url = f"{baseurl}/metadata/filter/custom?filter={filter}"
-            metadata["metadata_url"] = metadata_url
-
-            # also save units here
-            
-            # 1 or 2?
-            metadata["version"] = results["data"]["version"]
-            # import pdb; pdb.set_trace()
-
-        return metadata
-
     def _load_all_results(self):
 
         all_results = []
@@ -476,7 +363,7 @@ class AXDSCatalog(Catalog):
 
             description = f"AXDS dataset_id {dataset_id} of datatype {self.datatype}"
             
-            metadata = self._load_metadata(result)
+            metadata = load_metadata(self.datatype, result)
             
             # don't save Camera sensor data for now
             if "webcam" in metadata["variables"]:

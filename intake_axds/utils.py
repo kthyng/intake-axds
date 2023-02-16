@@ -5,9 +5,13 @@ from typing import Optional
 
 import cf_pandas as cfp
 import requests
+from operator import itemgetter
+from shapely import wkt
+import pandas as pd
 
 
 search_headers = {"Accept": "application/json"}
+baseurl = "https://sensors.axds.co/api"
 
 
 def _get_version() -> str:
@@ -172,3 +176,154 @@ def return_docs_response(dataset_id: str) -> dict:
     url_docs_base = "https://search.axds.co/v2/docs?verbose=true"
     url = f"{url_docs_base}&id={dataset_id}"
     return requests.get(url, headers=search_headers).json()[0]
+
+
+def load_metadata(datatype: str, results: dict) -> dict:  #: Dict[str, str]
+    """Load metadata for catalog entry.
+
+    Parameters
+    ----------
+    results : dict
+        Returned results from call to server for a single dataset.
+
+    Returns
+    -------
+    dict
+        Metadata to store with catalog entry.
+    """
+
+    # matching names in intake-erddap
+    keys = ["datasetID", "title", "summary", "type", "minTime", "maxTime"]
+    # names of keys in Axiom system.
+    items = [
+        "uuid",
+        "label",
+        "description",
+        "type",
+        "start_date_time",
+        "end_date_time",
+    ]
+    values = itemgetter(*items)(results)
+    metadata = dict(zip(keys, values))
+
+    # items = ["institution", "geospatial_bounds"]
+    # values = itemgetter(*items)(results["source"]["meta"]["attributes"])
+    # metadata.update(dict(zip(items, values)))
+    # import pdb; pdb.set_trace()
+    if datatype == "platform2":
+        metadata["institution"] = (
+            results["source"]["meta"]["attributes"]["institution"]
+            if "institution" in results["source"]["meta"]["attributes"]
+            else None
+        )
+        metadata["geospatial_bounds"] = results["source"]["meta"]["attributes"][
+            "geospatial_bounds"
+        ]
+
+        p1 = wkt.loads(metadata["geospatial_bounds"])
+        keys = ["minLongitude", "minLatitude", "maxLongitude", "maxLatitude"]
+        metadata.update(dict(zip(keys, p1.bounds)))
+
+        metadata["variables"] = list(results["source"]["meta"]["variables"].keys())
+    
+    elif datatype == "sensor_station":
+        
+        # INSTITUTION?
+        # location is lon, lat, depth and type
+        # e.g. {'coordinates': [-123.711083, 38.914556, 0.0], 'type': 'Point'}
+        lon, lat, depth = results["data"]["location"]["coordinates"]
+        keys = ["minLongitude", "minLatitude", "maxLongitude", "maxLatitude"]
+        metadata.update(dict(zip(keys, [lon, lat, lon, lat])))
+        
+        # internal id?
+        # e.g. 106793
+        metadata["internal_id"] = results["data"]["id"]
+        
+        # Parameter group IDs is probably closest to variables
+        # e.g. [6, 7, 8, 9, 25, 26, 186]
+        # results["data"]["parameterGroupIds"]
+        
+        # variables, standard_names (or at least parameterNames)
+        # HERE SAVE VARIABLE NAMES
+        figs = results["data"]["figures"]
+        
+        # add a section of metadata that has all details for API            
+        
+        # KEEP VARIABLES NAMES
+        # out = [(fig["label"], fig["parameterGroupId"]) for fig in figs]
+        # import pdb; pdb.set_trace()
+        out = {subPlot["datasetVariableId"]: {"parameterGroupLabel": fig["label"], 
+                                                "parameterGroupId": fig["parameterGroupId"], 
+                                                "datasetVariableId": subPlot["datasetVariableId"], 
+                                                "parameterId": subPlot["parameterId"],
+                                                "label": subPlot["label"],
+                                                "deviceId": subPlot["deviceId"]}
+                for fig in figs for plot in fig["plots"] for subPlot in plot["subPlots"]}
+        metadata["variables_details"] = out
+        metadata["variables"] = list(out.keys())
+        
+        # include datumConversion info if present
+        if len(results["data"]["datumConversions"]) > 0:
+            metadata["datumConversions"] = results["data"]["datumConversions"]
+        
+        # # out = [(fig["label"], fig["parameterGroupId"], subPlot["datasetVariableId"], subPlot["parameterId"], subPlot["label"], subPlot["deviceId"]) for fig in figs for plot in fig["plots"] for subPlot in plot["subPlots"]]
+        # # out = [(fig["label"], fig["parameterGroupId"], subPlot["datasetVariableId"], subPlot["parameterId"], subPlot["label"], subPlot["deviceId"]) for fig in figs for subPlot in fig["plots"][0]["subPlots"]]
+        # pglabels, pgids, variables, parameterIds, labels, deviceIds = zip(*out)
+        # metadata["pglabels"] = list(pglabels)
+        # metadata["pgids"] = list(pgids)
+        # metadata["variables"] = list(variables)
+        # metadata["parameterIds"] = list(parameterIds)
+        # metadata["labels"] = list(labels)
+        # metadata["deviceIds"] = list(deviceIds)
+        
+        filter = f"%7B%22stations%22:%5B%22{metadata['internal_id']}%22%5D%7D"
+        baseurl = "https://sensors.axds.co/api"
+        metadata_url = f"{baseurl}/metadata/filter/custom?filter={filter}"
+        metadata["metadata_url"] = metadata_url
+
+        # also save units here
+        
+        # 1 or 2?
+        metadata["version"] = results["data"]["version"]
+        # import pdb; pdb.set_trace()
+
+    return metadata
+
+
+def make_label(label, units, use_units=True):
+    """make label."""
+    if units is None or not use_units:
+        return f"{label}"
+    else:
+        return f"{label} [{units}]"
+
+
+def make_filter(internal_id: int, parameterGroupId: Optional[int] = None):
+    
+    filter = f"%7B%22stations%22:%5B%22{internal_id}%22%5D%7D"
+    
+    if parameterGroupId is not None:
+        filter += f"%2C%22parameterGroups%22%3A%5B{parameterGroupId}%5D%7D"
+    
+    return filter
+
+
+def make_data_url(filter: str, start_time: str, end_time: str):
+        
+    # handle start and end dates (maybe this should happen in cat?)
+    start_date = pd.Timestamp(start_time).strftime("%Y-%m-%dT%H:%M:%S")
+    end_date = pd.Timestamp(end_time).strftime("%Y-%m-%dT%H:%M:%S")
+
+    return f"{baseurl}/observations/filter/custom?filter={filter}&start={start_date}Z&end={end_date}Z"
+
+
+def make_metadata_url(filter):
+    return f"{baseurl}/metadata/filter/custom?filter={filter}"
+
+
+def make_search_docs_url(dataset_id):
+    return f"https://search.axds.co/v2/docs?verbose=false&id={dataset_id}"
+
+
+def response_from_url(url):
+    return requests.get(url, headers=search_headers).json()
