@@ -34,11 +34,13 @@ class AXDSSensorSource(base.DataSource):
     partition_access = True
     
     
-    def __init__(self, dataset_id, kwargs_search, internal_id, qartod, use_units, metadata={}):
+    def __init__(self, internal_id, start_time=None, end_time=None, qartod: bool = False, use_units: bool = True, metadata={}):
         self.url_search_base = "https://search.axds.co/v2/search?portalId=-1&page=1&pageSize=10000&verbose=true"
         self.url_docs_base = "https://search.axds.co/v2/docs?verbose=true"
-        self.dataset_id = dataset_id
-        self.kwargs_search = kwargs_search
+        # self.dataset_id = dataset_id
+        self.start_time = start_time
+        self.end_time = end_time
+        # self.kwargs_search = kwargs_search
         self.internal_id = internal_id
         self.qartod = qartod
         self.use_units = use_units
@@ -180,17 +182,21 @@ class AXDSSensorSource(base.DataSource):
     def _load(self):
         """How to load in a specific station once you know it by dataset_id"""
         
-        if "min_time" not in self.kwargs_search or "max_time" not in self.kwargs_search:
-            # raise KeyError("`min_time` and `max_time` are required to load data.")
-            # if self.verbose:
-            #     print(f"min_time and max_time not input in kwargs_search, using times from metadata: {self.metadata['minTime']}, {self.metadata['maxTime']}.")
-            min_time, max_time = self.metadata['minTime'], self.metadata['maxTime']
-        else:
-            min_time, max_time = self.kwargs_search["min_time"], self.kwargs_search["max_time"]
+        start_time = self.start_time or self.metadata['minTime']
+        end_time = self.end_time or self.metadata['maxTime']
+        
+        # if "start_time" is not None or "max_time" not in self.kwargs_search:
+        # # if "min_time" not in self.kwargs_search or "max_time" not in self.kwargs_search:
+        #     # raise KeyError("`min_time` and `max_time` are required to load data.")
+        #     # if self.verbose:
+        #     #     print(f"min_time and max_time not input in kwargs_search, using times from metadata: {self.metadata['minTime']}, {self.metadata['maxTime']}.")
+        #     min_time, max_time = self.metadata['minTime'], self.metadata['maxTime']
+        # else:
+        #     min_time, max_time = self.kwargs_search["min_time"], self.kwargs_search["max_time"]
         
         # handle start and end dates (maybe this should happen in cat?)
-        start_date = pd.Timestamp(min_time).strftime("%Y-%m-%dT%H:%M:%S")
-        end_date = pd.Timestamp(max_time).strftime("%Y-%m-%dT%H:%M:%S")
+        start_date = pd.Timestamp(start_time).strftime("%Y-%m-%dT%H:%M:%S")
+        end_date = pd.Timestamp(end_time).strftime("%Y-%m-%dT%H:%M:%S")
         
         # # get variable names and matching parameter IDs for dataset
         # varnames, parids = self.metadata["variables"], self.metadata["parameterIds"]

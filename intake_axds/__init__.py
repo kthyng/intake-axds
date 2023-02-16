@@ -2,6 +2,7 @@
 intake-axds: Intake approach for Axiom assets.
 """
 
+import intake
 # from .axds_cat import AXDSCatalog
 from .utils import (  # noqa: F401
     _get_version,

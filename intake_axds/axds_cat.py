@@ -174,7 +174,7 @@ class AXDSCatalog(Catalog):
         # if self.kwargs_search is not None:
         checks = [
             ["min_lon", "max_lon", "min_lat", "max_lat"],
-            ["min_time", "max_time"],
+            # ["min_time", "max_time"],
         ]
         for check in checks:
             if any(key in self.kwargs_search for key in check) and not all(
@@ -505,9 +505,12 @@ class AXDSCatalog(Catalog):
             
             # this Source has different arg requirements
             elif self.datatype == "sensor_station":
-                args = {"dataset_id": dataset_id,
+                args = {
+                    # "dataset_id": dataset_id,
                         "internal_id": metadata["internal_id"],
-                        "kwargs_search": self.kwargs_search,
+                        "start_time": self.kwargs_search.get("min_time", None),
+                        "end_time": self.kwargs_search.get("max_time", None),
+                        # "kwargs_search": self.kwargs_search,
                         "qartod": self.qartod,
                         "use_units": self.use_units,
                         }

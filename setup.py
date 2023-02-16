@@ -10,6 +10,7 @@ setup(
     entry_points={
         "intake.drivers": [
             "axds_cat = intake_axds.axds_cat:AXDSCatalog",
+            "axds_sensor = intake_axds.axds:AXDSSensorSource",
         ]
     },
 )
