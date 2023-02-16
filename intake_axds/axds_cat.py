@@ -4,7 +4,7 @@ Set up a catalog for Axiom assets.
 
 
 from operator import itemgetter
-from typing import List, MutableMapping, Optional, Union
+from typing import List, MutableMapping, Optional, Tuple, Union
 
 import pandas as pd
 import requests
@@ -39,6 +39,7 @@ class AXDSCatalog(Catalog):
         datatype: str = "platform2",
         keys_to_match: Optional[Union[str, list]] = None,
         standard_names: Optional[Union[str, list]] = None,
+        bbox: Optional[Tuple[float, float, float, float]] = None,
         start_time: Optional[Union[datetime, str]] = None,
         end_time: Optional[Union[datetime, str]] = None,
         search_for: Optional[str] = None,
@@ -65,6 +66,8 @@ class AXDSCatalog(Catalog):
             Name of keys to match with system-available variable parameterNames using criteria. To filter search by variables, either input keys_to_match and a vocabulary or input standard_names.
         standard_names : str, list, optional
             Standard names to select from Axiom search parameterNames. To filter search by variables, either input keys_to_match and a vocabulary or input standard_names.
+        bbox : tuple of 4 floats, optional
+            For explicit geographic search queries, pass a tuple of four floats in the `bbox` argument. The bounding box parameters are `(min_lon, min_lat, max_lon, max_lat)`.
         start_time : str, datetime, optional
             For explicit search queries for datasets that contain data after `start_time`. Must include end_time if include start_time.
         end_time : str, datetime, optional
@@ -119,42 +122,28 @@ class AXDSCatalog(Catalog):
         self.verbose = verbose
         self.qartod = qartod
         self.use_units = use_units
+        self.kwargs_search = kwargs_search or {}
         
         allowed_datatypes = ("platform2", "sensor_station")
         if datatype not in allowed_datatypes:
             raise KeyError(f"Datatype must be one of {allowed_datatypes} but is {datatype}")
 
-        if kwargs_search is not None:
-            checks = [
-                ["min_lon", "max_lon", "min_lat", "max_lat"],
-                ["min_time", "max_time"],
-            ]
-            for check in checks:
-                if any(key in kwargs_search for key in check) and not all(
-                    key in kwargs_search for key in check
-                ):
-                    raise ValueError(
-                        f"If any of {check} are input, they all must be input."
-                    )
-
-            if "min_lon" in kwargs_search and "max_lon" in kwargs_search:
-                min_lon, max_lon = kwargs_search["min_lon"], kwargs_search["max_lon"]
-                if isinstance(min_lon, (int, float)) and isinstance(
-                    max_lon, (int, float)
-                ):
-                    if abs(min_lon) > 180 or abs(max_lon) > 180:
-                        raise ValueError(
-                            "`min_lon` and `max_lon` must be in the range -180 to 180."
-                        )
-
-        else:
-            kwargs_search = {}
-        self.kwargs_search = kwargs_search
-
         # can instead input the kwargs_search outside of that dictionary
+        if bbox is not None:
+            if not isinstance(bbox, tuple):
+                raise TypeError(
+                    f"Expecting a tuple of four floats for argument bbox: {type(bbox)}"
+                )
+            if len(bbox) != 4:
+                raise ValueError("bbox argument requires a tuple of four floats")
+            self.kwargs_search["min_lon"] = bbox[0]
+            self.kwargs_search["min_lat"] = bbox[1]
+            self.kwargs_search["max_lon"] = bbox[2]
+            self.kwargs_search["max_lat"] = bbox[3]
+
         if start_time is not None:
-            if end_time is None:
-                raise ValueError("Since start_time is not None, end_time also must not be None.")
+            # if end_time is None:
+            #     raise ValueError("Since start_time is not None, end_time also must not be None.")
             if not isinstance(start_time, (str, datetime)):
                 raise TypeError(
                     f"Expecting a datetime for start_time argument: {repr(start_time)}"
@@ -164,8 +153,8 @@ class AXDSCatalog(Catalog):
             self.kwargs_search["min_time"] = start_time# f"{start_time:%Y-%m-%dT%H:%M:%S}"
 
         if end_time is not None:
-            if start_time is None:
-                raise ValueError("Since end_time is not None, start_time also must not be None.")
+            # if start_time is None:
+            #     raise ValueError("Since end_time is not None, start_time also must not be None.")
             if not isinstance(end_time, (str, datetime)):
                 raise TypeError(
                     f"Expecting a datetime for end_time argument: {repr(end_time)}"
@@ -180,6 +169,34 @@ class AXDSCatalog(Catalog):
                     f"Expecting string for search_for argument: {repr(search_for)}"
                 )
             self.kwargs_search["search_for"] = search_for
+
+
+        # if self.kwargs_search is not None:
+        checks = [
+            ["min_lon", "max_lon", "min_lat", "max_lat"],
+            ["min_time", "max_time"],
+        ]
+        for check in checks:
+            if any(key in self.kwargs_search for key in check) and not all(
+                key in self.kwargs_search for key in check
+            ):
+                raise ValueError(
+                    f"If any of {check} are input, they all must be input."
+                )
+
+        if "min_lon" in self.kwargs_search and "max_lon" in self.kwargs_search:
+            min_lon, max_lon = self.kwargs_search["min_lon"], self.kwargs_search["max_lon"]
+            if isinstance(min_lon, (int, float)) and isinstance(
+                max_lon, (int, float)
+            ):
+                if abs(min_lon) > 180 or abs(max_lon) > 180:
+                    raise ValueError(
+                        "`min_lon` and `max_lon` must be in the range -180 to 180."
+                    )
+
+        # else:
+        #     kwargs_search = {}
+        # self.kwargs_search = kwargs_search
 
         # input keys_to_match OR standard_names but not both
         if keys_to_match is not None and standard_names is not None:
