@@ -27,7 +27,7 @@ class AXDSSensorSource(base.DataSource):
     partition_access = True
     
     
-    def __init__(self, internal_id=None, dataset_id=None, start_time=None, end_time=None, qartod: bool = False, use_units: bool = True, metadata=None):
+    def __init__(self, internal_id=None, dataset_id=None, start_time=None, end_time=None, qartod: bool = False, use_units: bool = True, metadata=None, binned: bool = False, bin_interval: Optional[str] = None):
         
         if internal_id is None and dataset_id is None:
             raise ValueError("internal_id and dataset_id cannot both be None. Input one of them.")
@@ -40,6 +40,11 @@ class AXDSSensorSource(base.DataSource):
         self.internal_id = internal_id
         self.qartod = qartod
         self.use_units = use_units
+        
+        if bin_interval is not None:
+            binned = True
+        self.binned = binned
+        self.bin_interval = bin_interval
         
         # need dataset_id to get metadata
         if self.dataset_id is None:
@@ -62,6 +67,8 @@ class AXDSSensorSource(base.DataSource):
             "end_time": self.end_time,
             "qartod": self.qartod,
             "use_units": self.use_units,
+            "binned": self.binned,
+            "bin_interval": bin_interval,
         })
 
         super(AXDSSensorSource, self).__init__(metadata=metadata)
@@ -125,9 +132,15 @@ class AXDSSensorSource(base.DataSource):
             if feed["metadata"]["lon"] is not None or feed["metadata"]["lat"] is not None:
                 lon, lat = feed["metadata"]["lon"], feed["metadata"]["lat"]
                 raise ValueError(f"lon/lat should be None for sensors but are {lon}, {lat}.")
+            # import pdb; pdb.set_trace()
+            # different names for data sets depending on if binned or not
+            if self.binned:
+                metadata_values_name = "avgVals"
+            else:
+                metadata_values_name = "values"
             
             # add data columns
-            data_cols = {val["index"]: val for val in feed["metadata"]["values"]}
+            data_cols = {val["index"]: val for val in feed["metadata"][metadata_values_name]}
             # match variable name from metadata (standard_name) to be column name
             for index in data_cols:
                 # variable name
@@ -209,7 +222,7 @@ class AXDSSensorSource(base.DataSource):
         
         dfs = []
         for filter in filters:
-            self.data_raw_url = make_data_url(filter, start_time, end_time)
+            self.data_raw_url = make_data_url(filter, start_time, end_time, self.binned, self.bin_interval)
             # data_raw_url = f"{baseurl}/observations/filter/custom?filter={filter}&start={start_date}Z&end={end_date}Z"
             dfs.append(self._load_to_dataframe(self.data_raw_url))
 

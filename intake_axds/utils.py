@@ -308,13 +308,36 @@ def make_filter(internal_id: int, parameterGroupId: Optional[int] = None):
     return filter
 
 
-def make_data_url(filter: str, start_time: str, end_time: str):
-        
+def make_data_url(filter: str, start_time: str, end_time: str, binned: bool = False, bin_interval: Optional[str] = None) -> str:
+    """Create url for accessing sensor data.
+
+    Parameters
+    ----------
+    filter : str
+        get this from ``make_filter()``; contains station and potentially variable info.
+    start_time : str
+        e.g. "2022-1-1". Needs to be interpretable by pandas ``Timestamp``.
+    end_time : str
+        e.g. "2022-1-2". Needs to be interpretable by pandas ``Timestamp``.
+    binned : bool, optional
+        True for binned data, False for raw, by default False.
+    bin_interval : Optional[str], optional
+        If ``binned=True``, input the binning interval to return. Options are hourly, daily, weekly, monthly, yearly.
+
+    Returns
+    -------
+    str
+        _description_
+    """
+
     # handle start and end dates (maybe this should happen in cat?)
     start_date = pd.Timestamp(start_time).strftime("%Y-%m-%dT%H:%M:%S")
     end_date = pd.Timestamp(end_time).strftime("%Y-%m-%dT%H:%M:%S")
-
-    return f"{baseurl}/observations/filter/custom?filter={filter}&start={start_date}Z&end={end_date}Z"
+        
+    if binned:
+        return f"{baseurl}/observations/filter/custom/binned?filter={filter}&start={start_date}Z&end={end_date}Z&binInterval={bin_interval}"
+    else:
+        return f"{baseurl}/observations/filter/custom?filter={filter}&start={start_date}Z&end={end_date}Z"
 
 
 def make_metadata_url(filter):

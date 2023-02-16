@@ -44,6 +44,8 @@ class AXDSCatalog(Catalog):
         kwargs_search: MutableMapping[str, Union[str, int, float]] = None,
         qartod: Union[bool,int,List[int]] = False,
         use_units: bool = True,
+        binned: bool = False,
+        bin_interval: Optional[str] = None,
         page_size: int = 10,
         verbose: bool = False,
         name: str = "catalog",
@@ -97,6 +99,10 @@ class AXDSCatalog(Catalog):
         
         use_units : bool, optional
             If True include units in column names. Syntax is "standard_name [units]". If False, no units. Then syntax for column names is "standard_name". This is currently specific to sensor_station only.
+        binned : bool, optional
+            True for binned data, False for raw, by default False.
+        bin_interval : Optional[str], optional
+            If ``binned=True``, input the binning interval to return. Options are hourly, daily, weekly, monthly, yearly. If bin_interval is input, binned is set to True.
         page_size : int, optional
             Number of results. Fewer is faster. Note that default is 10. Note that if you want to make sure you get all available datasets, you should input a large number like 50000.
         verbose : bool, optional
@@ -121,6 +127,11 @@ class AXDSCatalog(Catalog):
         self.qartod = qartod
         self.use_units = use_units
         self.kwargs_search = kwargs_search or {}
+
+        if bin_interval is not None:
+            binned = True
+        self.binned = binned
+        self.bin_interval = bin_interval
         
         allowed_datatypes = ("platform2", "sensor_station")
         if datatype not in allowed_datatypes:
@@ -400,6 +411,8 @@ class AXDSCatalog(Catalog):
                         # "kwargs_search": self.kwargs_search,
                         "qartod": self.qartod,
                         "use_units": self.use_units,
+                        "binned": self.binned,
+                        "bin_interval": self.bin_interval,
                         }
                 plugin = AXDSSensorSource
 
