@@ -41,6 +41,7 @@ class AXDSCatalog(Catalog):
         standard_names: Optional[Union[str, list]] = None,
         start_time: Optional[Union[datetime, str]] = None,
         end_time: Optional[Union[datetime, str]] = None,
+        search_for: Optional[str] = None,
         kwargs_search: MutableMapping[str, Union[str, int, float]] = None,
         qartod: Union[bool,int,List[int]] = False,
         use_units: bool = True,
@@ -68,6 +69,8 @@ class AXDSCatalog(Catalog):
             For explicit search queries for datasets that contain data after `start_time`. Must include end_time if include start_time.
         end_time : str, datetime, optional
             For explicit search queries for datasets that contain data before `end_time`. Must include start_time if include end_time.
+        search_for : str, optional
+            For explicit search queries for datasets that any contain of the terms specified in this keyword argument.
         kwargs_search : dict, optional
             Keyword arguments to input to search on the server before making the catalog. Options are:
             * to search by bounding box: include all of min_lon, max_lon, min_lat, max_lat: (int, float). Longitudes must be between -180 to +180.
@@ -170,6 +173,13 @@ class AXDSCatalog(Catalog):
             # if isinstance(end_time, str):
             #     end_time = pd.Timestamp(end_time)#.strptime(end_time, "%Y-%m-%dT%H:%M:%SZ")
             self.kwargs_search["max_time"] = end_time# f"{end_time:%Y-%m-%dT%H:%M:%S}"
+
+        if search_for is not None:
+            if not isinstance(search_for, str):
+                raise TypeError(
+                    f"Expecting string for search_for argument: {repr(search_for)}"
+                )
+            self.kwargs_search["search_for"] = search_for
 
         # input keys_to_match OR standard_names but not both
         if keys_to_match is not None and standard_names is not None:
