@@ -37,8 +37,9 @@ class AXDSCatalog(Catalog):
         bbox: Optional[Tuple[float, float, float, float]] = None,
         start_time: Optional[Union[datetime, str]] = None,
         end_time: Optional[Union[datetime, str]] = None,
-        search_for: Optional[str] = None,
+        search_for: Optional[Union[str, List[str]]] = None,
         kwargs_search: MutableMapping[str, Union[str, int, float]] = None,
+        query_type: str = "union",
         qartod: Union[bool,int,List[int]] = False,
         use_units: bool = True,
         binned: bool = False,
@@ -62,22 +63,29 @@ class AXDSCatalog(Catalog):
         datatype : str
             Axiom data type. Currently "platform2" or "sensor_station" but eventually also "module". Platforms and sensors are returned as dataframe containers.
         keys_to_match : str, list, optional
-            Name of keys to match with system-available variable parameterNames using criteria. To filter search by variables, either input keys_to_match and a vocabulary or input standard_names.
+            Name of keys to match with system-available variable parameterNames using criteria. To filter search by variables, either input keys_to_match and a vocabulary or input standard_names. Results from multiple values will be combined according to ``query_type``.
         standard_names : str, list, optional
-            Standard names to select from Axiom search parameterNames. If more than one is input, the search is for a logical OR of datasets containing the standard_names. To filter search by variables, either input keys_to_match and a vocabulary or input standard_names.
+            Standard names to select from Axiom search parameterNames. If more than one is input, the search is for a logical OR of datasets containing the standard_names. To filter search by variables, either input keys_to_match and a vocabulary or input standard_names. Results from multiple values will be combined according to ``query_type``.
         bbox : tuple of 4 floats, optional
             For explicit geographic search queries, pass a tuple of four floats in the `bbox` argument. The bounding box parameters are `(min_lon, min_lat, max_lon, max_lat)`.
         start_time : str, datetime, optional
             For explicit search queries for datasets that contain data after `start_time`. Must include end_time if include start_time.
         end_time : str, datetime, optional
             For explicit search queries for datasets that contain data before `end_time`. Must include start_time if include end_time.
-        search_for : str, optional
-            For explicit search queries for datasets that any contain of the terms specified in this keyword argument.
+        search_for : str, list of strings, optional
+            For explicit search queries for datasets that any contain of the terms specified in this keyword argument. Results from multiple values will be combined according to ``query_type``.
         kwargs_search : dict, optional
             Keyword arguments to input to search on the server before making the catalog. Options are:
             * to search by bounding box: include all of min_lon, max_lon, min_lat, max_lat: (int, float). Longitudes must be between -180 to +180.
             * to search within a datetime range: include both of min_time, max_time: interpretable datetime string, e.g., "2021-1-1"
-            * to search using a textual keyword: include `search_for` as a string.
+            * to search using a textual keyword: include `search_for` as a string or list of strings. Results from multiple values will be combined according to ``query_type``.
+        query_type : str, default "union"
+            Specifies how the catalog should apply the query parameters. Choices are
+            ``"union"`` or ``"intersection"``. If the ``query_type`` is set to
+            ``"intersection"``, then the set of results will be the intersection of
+            each individual query made to ERDDAP. This is equivalent to a logical
+            AND of the results. If the value is ``"union"`` then the results will be
+            the union of each resulting dataset. This is equivalent to a logical OR.
         qartod : bool, int, list, optional
             Whether to return QARTOD agg flags when available, which is only for sensor_stations. Can instead input an int or a list of ints representing the _qa_agg flags for which to return data values. More information about QARTOD testing and flags can be found here: https://cdn.ioos.noaa.gov/media/2020/07/QARTOD-Data-Flags-Manual_version1.2final.pdf. Only used by datatype "sensor_station".
             
@@ -125,6 +133,7 @@ class AXDSCatalog(Catalog):
         self.qartod = qartod
         self.use_units = use_units
         self.kwargs_search = kwargs_search or {}
+        self.query_type = query_type
 
         if bin_interval is not None:
             binned = True
@@ -134,6 +143,10 @@ class AXDSCatalog(Catalog):
         allowed_datatypes = ("platform2", "sensor_station")
         if datatype not in allowed_datatypes:
             raise KeyError(f"Datatype must be one of {allowed_datatypes} but is {datatype}")        
+        
+        if query_type == "intersection" and page_size == 10:
+            if verbose:
+                print("With `query_type` of 'intersection' you probably want to use a larger `page_size` than the default of 10.")
 
         # can instead input the kwargs_search outside of that dictionary
         if bbox is not None:
@@ -149,6 +162,9 @@ class AXDSCatalog(Catalog):
             self.kwargs_search["max_lat"] = bbox[3]
 
         if start_time is not None:
+            if start_time in self.kwargs_search:
+                raise KeyError("start_time defined explicitly and in kwargs_search.")
+            
             # if end_time is None:
             #     raise ValueError("Since start_time is not None, end_time also must not be None.")
             if not isinstance(start_time, (str, datetime)):
@@ -160,6 +176,8 @@ class AXDSCatalog(Catalog):
             self.kwargs_search["min_time"] = start_time# f"{start_time:%Y-%m-%dT%H:%M:%S}"
 
         if end_time is not None:
+            if end_time in self.kwargs_search:
+                raise KeyError("end_time defined explicitly and in kwargs_search.")
             # if start_time is None:
             #     raise ValueError("Since end_time is not None, start_time also must not be None.")
             if not isinstance(end_time, (str, datetime)):
@@ -171,12 +189,18 @@ class AXDSCatalog(Catalog):
             self.kwargs_search["max_time"] = end_time# f"{end_time:%Y-%m-%dT%H:%M:%S}"
 
         if search_for is not None:
-            if not isinstance(search_for, str):
+            if "search_for" in self.kwargs_search:
+                raise KeyError("search_for defined explicitly and in kwargs_search.")
+            if not isinstance(search_for, (str, list)):
                 raise TypeError(
-                    f"Expecting string for search_for argument: {repr(search_for)}"
+                    f"Expecting string or list of strings for search_for argument: {repr(search_for)}"
                 )
             self.kwargs_search["search_for"] = search_for
-
+        if "search_for" not in self.kwargs_search:
+            self.kwargs_search["search_for"] = [None]
+        else:
+            if isinstance(self.kwargs_search["search_for"], str):
+                self.kwargs_search["search_for"] = [self.kwargs_search["search_for"]]
 
         # if self.kwargs_search is not None:
         checks = [
@@ -212,6 +236,8 @@ class AXDSCatalog(Catalog):
             self.pglabels = match_key_to_parameter(astype(keys_to_match, list))
         elif standard_names is not None:
             self.pglabels = match_std_names_to_parameter(astype(standard_names, list))
+        else:
+            self.pglabels = []
 
         # Put together catalog-level stuff
         if metadata is None:
@@ -225,7 +251,7 @@ class AXDSCatalog(Catalog):
             **kwargs, ttl=ttl, name=name, description=description, metadata=metadata
         )
 
-    def search_url(self, pglabel: Optional[str] = None) -> str:
+    def search_url(self, pglabel: Optional[str] = None, text_search: Optional[str] = None) -> str:
         """Set up url for search."""
 
         self.url_search_base = f"https://search.axds.co/v2/search?portalId=-1&page=1&pageSize={self.page_size}&verbose=true"
@@ -264,8 +290,8 @@ class AXDSCatalog(Catalog):
 
             url += f"{url_add_time}"
 
-        if "search_for" in self.kwargs_search:
-            url += f"&query={self.kwargs_search['search_for']}"
+        if text_search is not None:
+            url += f"&query={text_search}"
 
         # if self.pglabel is not None:
 
@@ -283,25 +309,31 @@ class AXDSCatalog(Catalog):
 
     def get_search_urls(self) -> list:
         """Gather all search urls for catalog.
+        
+        Inputs that can have more than one search_url are pglabels and search_for list.
 
         Returns
         -------
         list
             List of search urls.
         """
+        
+        search_urls = [self.search_url(pglabel, text_search) for pglabel in self.pglabels for text_search in self.kwargs_search["search_for"]]
+        # import pdb; pdb.set_trace()
 
-        if self.pglabels is not None:
-            search_urls = []
-            for pglabel in self.pglabels:
-                search_urls.append(self.search_url(pglabel))
-        else:
-            search_urls = [self.search_url()]
+        # if self.pglabels is not None:
+        #     search_urls = []
+        #     for pglabel in self.pglabels:
+        #         search_urls.append(self.search_url(pglabel))
+        # else:
+        #     search_urls = [self.search_url()]
 
         return search_urls
 
     def _load_all_results(self):
 
-        all_results = []
+        combined_results = []
+        first_loop = True
         for search_url in self.get_search_urls():
             res = response_from_url(search_url)
             if "results" not in res:
@@ -314,19 +346,42 @@ class AXDSCatalog(Catalog):
                     f"For search url {search_url}, number of results found: {len(res['results'])}. Page size: {self.page_size}."
                 )
 
-            all_results.extend(res["results"])
-        return all_results
+            if self.query_type == "union":  # logical OR
+                combined_results.extend(res["results"])
+
+            elif self.query_type == "intersection":  # logical AND
+                if first_loop:  # initialize
+                    combined_results = res['results']
+                    first_loop = False
+                else:
+                    # compare uuids from first search with uuids from next search
+                    uuids_before = [dataset["uuid"] for dataset in combined_results]
+                    uuids_now = [dataset["uuid"] for dataset in res['results']]
+                    
+                    overlapping_uuids = set(uuids_before).intersection(set(uuids_now))
+                    
+                    # res_before = [dataset for dataset in combined_results if dataset["uuid"] in overlapping_uuids]
+                    # overlapping_uuits.pop(dataset) for dataset in 
+                    # res_now = [dataset for dataset in res["results"] if dataset["uuid"] in overlapping_uuids]
+
+                    # import pdb; pdb.set_trace()
+                    combined_results = [dataset for dataset in combined_results if dataset["uuid"] in overlapping_uuids]
+                    # combined_results = res_before + res_now
+                    # combined_results = res["results"]
+                    # all_results.extend(res["results"])
+
+        if self.verbose:
+            unique = set([res["uuid"] for res in combined_results])
+            print(
+                f"Total number of results found for page_size {self.page_size} over {len(self.get_search_urls())} different searches with query_type {self.query_type}: {len(combined_results)}, with unique results: {len(unique)}."
+            )
+                
+        return combined_results
 
     def _load(self):
         """Find all dataset ids and create catalog."""
 
         results = self._load_all_results()
-
-        if self.verbose:
-            unique = set([res["uuid"] for res in results])
-            print(
-                f"Total number of results found: {len(results)}, but unique results: {len(unique)}."
-            )
 
         self._entries = {}
         for result in results:
