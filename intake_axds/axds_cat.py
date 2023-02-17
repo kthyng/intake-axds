@@ -6,7 +6,6 @@ Set up a catalog for Axiom assets.
 from typing import List, MutableMapping, Optional, Tuple, Union
 
 import pandas as pd
-import requests
 from datetime import datetime
 from cf_pandas import astype
 from intake.catalog.base import Catalog
@@ -15,11 +14,9 @@ from intake.source.csv import CSVSource
 from intake_parquet.source import ParquetSource
 
 from . import __version__
-from .utils import load_metadata, match_key_to_parameter, match_std_names_to_parameter
+from .utils import load_metadata, match_key_to_parameter, match_std_names_to_parameter, response_from_url
 from .axds import AXDSSensorSource
 
-
-search_headers = {"Accept": "application/json"}
 
 
 class AXDSCatalog(Catalog):
@@ -56,16 +53,18 @@ class AXDSCatalog(Catalog):
     ):
         """Initialize an Axiom Catalog.
         
+        only datatype sensor_station uses the following parameters: qartod, use_units, binned, bin_interval
+        
         datatype of sensor_station skips webcam data.
 
         Parameters
         ----------
         datatype : str
-            Axiom data type. Currently only "platform2" but eventually also "module". Platforms will be returned as dataframe containers.
+            Axiom data type. Currently "platform2" or "sensor_station" but eventually also "module". Platforms and sensors are returned as dataframe containers.
         keys_to_match : str, list, optional
             Name of keys to match with system-available variable parameterNames using criteria. To filter search by variables, either input keys_to_match and a vocabulary or input standard_names.
         standard_names : str, list, optional
-            Standard names to select from Axiom search parameterNames. To filter search by variables, either input keys_to_match and a vocabulary or input standard_names.
+            Standard names to select from Axiom search parameterNames. If more than one is input, the search is for a logical OR of datasets containing the standard_names. To filter search by variables, either input keys_to_match and a vocabulary or input standard_names.
         bbox : tuple of 4 floats, optional
             For explicit geographic search queries, pass a tuple of four floats in the `bbox` argument. The bounding box parameters are `(min_lon, min_lat, max_lon, max_lat)`.
         start_time : str, datetime, optional
@@ -80,7 +79,7 @@ class AXDSCatalog(Catalog):
             * to search within a datetime range: include both of min_time, max_time: interpretable datetime string, e.g., "2021-1-1"
             * to search using a textual keyword: include `search_for` as a string.
         qartod : bool, int, list, optional
-            Whether to return QARTOD agg flags when available, which is only for sensor_stations. Can instead input an int or a list of ints representing the _qa_agg flags for which to return data values. More information about QARTOD testing and flags can be found here: https://cdn.ioos.noaa.gov/media/2020/07/QARTOD-Data-Flags-Manual_version1.2final.pdf. 
+            Whether to return QARTOD agg flags when available, which is only for sensor_stations. Can instead input an int or a list of ints representing the _qa_agg flags for which to return data values. More information about QARTOD testing and flags can be found here: https://cdn.ioos.noaa.gov/media/2020/07/QARTOD-Data-Flags-Manual_version1.2final.pdf. Only used by datatype "sensor_station".
             
             Examples of ways to use this input are:
             
@@ -98,11 +97,11 @@ class AXDSCatalog(Catalog):
             * 9: Missing Data
         
         use_units : bool, optional
-            If True include units in column names. Syntax is "standard_name [units]". If False, no units. Then syntax for column names is "standard_name". This is currently specific to sensor_station only.
+            If True include units in column names. Syntax is "standard_name [units]". If False, no units. Then syntax for column names is "standard_name". This is currently specific to sensor_station only. Only used by datatype "sensor_station".
         binned : bool, optional
-            True for binned data, False for raw, by default False.
+            True for binned data, False for raw, by default False. Only used by datatype "sensor_station".
         bin_interval : Optional[str], optional
-            If ``binned=True``, input the binning interval to return. Options are hourly, daily, weekly, monthly, yearly. If bin_interval is input, binned is set to True.
+            If ``binned=True``, input the binning interval to return. Options are hourly, daily, weekly, monthly, yearly. If bin_interval is input, binned is set to True. Only used by datatype "sensor_station".
         page_size : int, optional
             Number of results. Fewer is faster. Note that default is 10. Note that if you want to make sure you get all available datasets, you should input a large number like 50000.
         verbose : bool, optional
@@ -120,7 +119,6 @@ class AXDSCatalog(Catalog):
         """
 
         self.datatype = datatype
-        self.url_docs_base = "https://search.axds.co/v2/docs?verbose=true"
         self.kwargs_search = kwargs_search
         self.page_size = page_size
         self.verbose = verbose
@@ -135,7 +133,7 @@ class AXDSCatalog(Catalog):
         
         allowed_datatypes = ("platform2", "sensor_station")
         if datatype not in allowed_datatypes:
-            raise KeyError(f"Datatype must be one of {allowed_datatypes} but is {datatype}")
+            raise KeyError(f"Datatype must be one of {allowed_datatypes} but is {datatype}")        
 
         # can instead input the kwargs_search outside of that dictionary
         if bbox is not None:
@@ -202,10 +200,6 @@ class AXDSCatalog(Catalog):
                     raise ValueError(
                         "`min_lon` and `max_lon` must be in the range -180 to 180."
                     )
-
-        # else:
-        #     kwargs_search = {}
-        # self.kwargs_search = kwargs_search
 
         # input keys_to_match OR standard_names but not both
         if keys_to_match is not None and standard_names is not None:
@@ -299,7 +293,6 @@ class AXDSCatalog(Catalog):
         if self.pglabels is not None:
             search_urls = []
             for pglabel in self.pglabels:
-                # import pdb; pdb.set_trace()
                 search_urls.append(self.search_url(pglabel))
         else:
             search_urls = [self.search_url()]
@@ -310,7 +303,7 @@ class AXDSCatalog(Catalog):
 
         all_results = []
         for search_url in self.get_search_urls():
-            res = requests.get(search_url, headers=search_headers).json()
+            res = response_from_url(search_url)
             if "results" not in res:
                 raise ValueError(
                     f"No results were returned for the search. Search url: {search_url}."
@@ -345,12 +338,6 @@ class AXDSCatalog(Catalog):
 
             if self.verbose:
                 print(f"Dataset ID: {dataset_id}")
-                
-            # # don't include V1 stations
-            # if result["data"]["version"] == 1:
-            #     if self.verbose:
-            #         print(f"Station with dataset_id {dataset_id} is V1 so is being skipped.")
-            #     continue
 
             # # quick check if OPENDAP is in the access methods for this uuid, otherwise move on
             # if self.datatype == "module":
@@ -404,7 +391,7 @@ class AXDSCatalog(Catalog):
             # this Source has different arg requirements
             elif self.datatype == "sensor_station":
                 args = {
-                    # "dataset_id": dataset_id,
+                        "dataset_id": dataset_id,
                         "internal_id": metadata["internal_id"],
                         "start_time": self.kwargs_search.get("min_time", None),
                         "end_time": self.kwargs_search.get("max_time", None),
@@ -428,6 +415,7 @@ class AXDSCatalog(Catalog):
             #     urlpaths = []  # using this to see if there are ever multiple urlpaths
             #     for layer_group_uuid in layer_group_uuids:
             #         docs_lg = return_docs_response(layer_group_uuid)
+                        # docs_log = response_from_url(make_search_docs_url(layer_group_uuid))
 
             #         if "OPENDAP" in docs_lg["data"]["access_methods"]:
             #             urlpath = docs_lg["source"]["layers"][0][
@@ -454,15 +442,6 @@ class AXDSCatalog(Catalog):
             #         continue
             #     else:
             #         urlpath = urlpaths[0]
-            #     # import pdb; pdb.set_trace()
-
-            #     # # gather metadata — this is at the module level. Is it different by layer_group?
-            #     # max_lat, min_lat = results["data"]["max_lat"], results["data"]["min_lat"]
-            #     # max_lng, min_lng = results["data"]["max_lng"], results["data"]["min_lng"]
-            #     # slug = results["data"]["model"]["slug"]
-            #     # start_time, end_time = results["data"]["start_time_utc"], results["data"]["end_time_utc"]
-            #     # # there are description and label too but are they the same for module and layer_group?
-
 
             entry = LocalCatalogEntry(
                 name=dataset_id,

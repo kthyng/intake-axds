@@ -1,8 +1,6 @@
 from typing import Optional
 from intake.source import base
-# from . import __version__
-# from erddapy import ERDDAP
-import requests
+from . import __version__
 import pandas as pd
 
 from .utils import load_metadata, response_from_url, make_metadata_url, make_filter, make_label, make_data_url, make_search_docs_url
@@ -22,7 +20,7 @@ class AXDSSensorSource(base.DataSource):
     Dataframe
     """
     name = 'axds-sensor'
-    version = '0.0.1'
+    version = __version__
     container = 'dataframe'
     partition_access = True
     
@@ -32,8 +30,8 @@ class AXDSSensorSource(base.DataSource):
         if internal_id is None and dataset_id is None:
             raise ValueError("internal_id and dataset_id cannot both be None. Input one of them.")
     
-        self.url_search_base = "https://search.axds.co/v2/search?portalId=-1&page=1&pageSize=10000&verbose=true"
-        self.url_docs_base = "https://search.axds.co/v2/docs?verbose=true"
+        # self.url_search_base = "https://search.axds.co/v2/search?portalId=-1&page=1&pageSize=10000&verbose=true"
+        # self.url_docs_base = "https://search.axds.co/v2/docs?verbose=true"
         self.dataset_id = dataset_id
         self.start_time = start_time
         self.end_time = end_time
@@ -223,7 +221,6 @@ class AXDSSensorSource(base.DataSource):
         dfs = []
         for filter in filters:
             self.data_raw_url = make_data_url(filter, start_time, end_time, self.binned, self.bin_interval)
-            # data_raw_url = f"{baseurl}/observations/filter/custom?filter={filter}&start={start_date}Z&end={end_date}Z"
             dfs.append(self._load_to_dataframe(self.data_raw_url))
 
         df = dfs[0]

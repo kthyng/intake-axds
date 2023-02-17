@@ -164,20 +164,6 @@ def match_std_names_to_parameter(standard_names: list) -> list:
     return list(set(pglabels))
 
 
-def return_docs_response(dataset_id: str) -> dict:
-    """Return request response to docs url in json.
-
-    Parameters
-    ----------
-    dataset_id : str
-        ID for dataset.
-    """
-
-    url_docs_base = "https://search.axds.co/v2/docs?verbose=true"
-    url = f"{url_docs_base}&id={dataset_id}"
-    return requests.get(url, headers=search_headers).json()[0]
-
-
 def load_metadata(datatype: str, results: dict) -> dict:  #: Dict[str, str]
     """Load metadata for catalog entry.
 
