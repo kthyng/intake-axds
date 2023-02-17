@@ -165,8 +165,6 @@ class AXDSCatalog(Catalog):
             if start_time in self.kwargs_search:
                 raise KeyError("start_time defined explicitly and in kwargs_search.")
             
-            # if end_time is None:
-            #     raise ValueError("Since start_time is not None, end_time also must not be None.")
             if not isinstance(start_time, (str, datetime)):
                 raise TypeError(
                     f"Expecting a datetime for start_time argument: {repr(start_time)}"
@@ -178,8 +176,6 @@ class AXDSCatalog(Catalog):
         if end_time is not None:
             if end_time in self.kwargs_search:
                 raise KeyError("end_time defined explicitly and in kwargs_search.")
-            # if start_time is None:
-            #     raise ValueError("Since end_time is not None, start_time also must not be None.")
             if not isinstance(end_time, (str, datetime)):
                 raise TypeError(
                     f"Expecting a datetime for end_time argument: {repr(end_time)}"
@@ -202,18 +198,13 @@ class AXDSCatalog(Catalog):
             if isinstance(self.kwargs_search["search_for"], str):
                 self.kwargs_search["search_for"] = [self.kwargs_search["search_for"]]
 
-        # if self.kwargs_search is not None:
-        checks = [
-            ["min_lon", "max_lon", "min_lat", "max_lat"],
-            # ["min_time", "max_time"],
-        ]
-        for check in checks:
-            if any(key in self.kwargs_search for key in check) and not all(
-                key in self.kwargs_search for key in check
-            ):
-                raise ValueError(
-                    f"If any of {check} are input, they all must be input."
-                )
+        check = ["min_lon", "max_lon", "min_lat", "max_lat"]
+        if any(key in self.kwargs_search for key in check) and not all(
+            key in self.kwargs_search for key in check
+        ):
+            raise ValueError(
+                f"If any of {check} are input, they all must be input."
+            )
 
         if "min_lon" in self.kwargs_search and "max_lon" in self.kwargs_search:
             min_lon, max_lon = self.kwargs_search["min_lon"], self.kwargs_search["max_lon"]
@@ -252,7 +243,20 @@ class AXDSCatalog(Catalog):
         )
 
     def search_url(self, pglabel: Optional[str] = None, text_search: Optional[str] = None) -> str:
-        """Set up url for search."""
+        """Set up one url for searching.
+
+        Parameters
+        ----------
+        pglabel : Optional[str], optional
+            Parameter Group Label (not ID), by default None
+        text_search : Optional[str], optional
+            free text search, by default None
+
+        Returns
+        -------
+        str
+            URL to use to search Axiom systems.
+        """
 
         self.url_search_base = f"https://search.axds.co/v2/search?portalId=-1&page=1&pageSize={self.page_size}&verbose=true"
 
@@ -293,8 +297,6 @@ class AXDSCatalog(Catalog):
         if text_search is not None:
             url += f"&query={text_search}"
 
-        # if self.pglabel is not None:
-
         # search by variable
         if pglabel is not None:
             url += f"&tag=Parameter+Group:{pglabel}"
@@ -319,18 +321,23 @@ class AXDSCatalog(Catalog):
         """
         
         search_urls = [self.search_url(pglabel, text_search) for pglabel in self.pglabels for text_search in self.kwargs_search["search_for"]]
-        # import pdb; pdb.set_trace()
-
-        # if self.pglabels is not None:
-        #     search_urls = []
-        #     for pglabel in self.pglabels:
-        #         search_urls.append(self.search_url(pglabel))
-        # else:
-        #     search_urls = [self.search_url()]
 
         return search_urls
 
-    def _load_all_results(self):
+    def _load_all_results(self) -> list:
+        """Combine results from multiple search urls using query_type.
+
+        Returns
+        -------
+        list
+            list of results from potentially multiple searches.
+
+        Raises
+        ------
+        ValueError
+            if no results found.
+        """
+
 
         combined_results = []
         first_loop = True
@@ -359,16 +366,8 @@ class AXDSCatalog(Catalog):
                     uuids_now = [dataset["uuid"] for dataset in res['results']]
                     
                     overlapping_uuids = set(uuids_before).intersection(set(uuids_now))
-                    
-                    # res_before = [dataset for dataset in combined_results if dataset["uuid"] in overlapping_uuids]
-                    # overlapping_uuits.pop(dataset) for dataset in 
-                    # res_now = [dataset for dataset in res["results"] if dataset["uuid"] in overlapping_uuids]
 
-                    # import pdb; pdb.set_trace()
                     combined_results = [dataset for dataset in combined_results if dataset["uuid"] in overlapping_uuids]
-                    # combined_results = res_before + res_now
-                    # combined_results = res["results"]
-                    # all_results.extend(res["results"])
 
         if self.verbose:
             unique = set([res["uuid"] for res in combined_results])
@@ -514,10 +513,6 @@ class AXDSCatalog(Catalog):
                 # getenv=False,
                 # getshell=False,
             )
-            # entry._metadata = {
-            #     # "info_url": f"{self.url_docs_base}&id={dataset_id}",
-            #     "dataset_id": dataset_id,
-            # }
 
             entry._plugin = [plugin]
 

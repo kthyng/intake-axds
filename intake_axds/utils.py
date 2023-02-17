@@ -1,7 +1,7 @@
 """Utils to run."""
 
 from importlib.metadata import PackageNotFoundError, version
-from typing import Optional
+from typing import Optional, Union
 
 import cf_pandas as cfp
 import requests
@@ -192,10 +192,6 @@ def load_metadata(datatype: str, results: dict) -> dict:  #: Dict[str, str]
     values = itemgetter(*items)(results)
     metadata = dict(zip(keys, values))
 
-    # items = ["institution", "geospatial_bounds"]
-    # values = itemgetter(*items)(results["source"]["meta"]["attributes"])
-    # metadata.update(dict(zip(items, values)))
-    # import pdb; pdb.set_trace()
     if datatype == "platform2":
         metadata["institution"] = (
             results["source"]["meta"]["attributes"]["institution"]
@@ -221,23 +217,12 @@ def load_metadata(datatype: str, results: dict) -> dict:  #: Dict[str, str]
         keys = ["minLongitude", "minLatitude", "maxLongitude", "maxLatitude"]
         metadata.update(dict(zip(keys, [lon, lat, lon, lat])))
         
-        # internal id?
         # e.g. 106793
         metadata["internal_id"] = results["data"]["id"]
         
-        # Parameter group IDs is probably closest to variables
-        # e.g. [6, 7, 8, 9, 25, 26, 186]
-        # results["data"]["parameterGroupIds"]
-        
         # variables, standard_names (or at least parameterNames)
-        # HERE SAVE VARIABLE NAMES
         figs = results["data"]["figures"]
         
-        # add a section of metadata that has all details for API            
-        
-        # KEEP VARIABLES NAMES
-        # out = [(fig["label"], fig["parameterGroupId"]) for fig in figs]
-        # import pdb; pdb.set_trace()
         out = {subPlot["datasetVariableId"]: {"parameterGroupLabel": fig["label"], 
                                                 "parameterGroupId": fig["parameterGroupId"], 
                                                 "datasetVariableId": subPlot["datasetVariableId"], 
@@ -252,16 +237,6 @@ def load_metadata(datatype: str, results: dict) -> dict:  #: Dict[str, str]
         if len(results["data"]["datumConversions"]) > 0:
             metadata["datumConversions"] = results["data"]["datumConversions"]
         
-        # # out = [(fig["label"], fig["parameterGroupId"], subPlot["datasetVariableId"], subPlot["parameterId"], subPlot["label"], subPlot["deviceId"]) for fig in figs for plot in fig["plots"] for subPlot in plot["subPlots"]]
-        # # out = [(fig["label"], fig["parameterGroupId"], subPlot["datasetVariableId"], subPlot["parameterId"], subPlot["label"], subPlot["deviceId"]) for fig in figs for subPlot in fig["plots"][0]["subPlots"]]
-        # pglabels, pgids, variables, parameterIds, labels, deviceIds = zip(*out)
-        # metadata["pglabels"] = list(pglabels)
-        # metadata["pgids"] = list(pgids)
-        # metadata["variables"] = list(variables)
-        # metadata["parameterIds"] = list(parameterIds)
-        # metadata["labels"] = list(labels)
-        # metadata["deviceIds"] = list(deviceIds)
-        
         filter = f"%7B%22stations%22:%5B%22{metadata['internal_id']}%22%5D%7D"
         baseurl = "https://sensors.axds.co/api"
         metadata_url = f"{baseurl}/metadata/filter/custom?filter={filter}"
@@ -271,20 +246,49 @@ def load_metadata(datatype: str, results: dict) -> dict:  #: Dict[str, str]
         
         # 1 or 2?
         metadata["version"] = results["data"]["version"]
-        # import pdb; pdb.set_trace()
 
     return metadata
 
 
-def make_label(label, units, use_units=True):
-    """make label."""
+def make_label(label: str, units: Optional[str] = None, use_units: bool = True) -> str:
+    """making column name
+
+    Parameters
+    ----------
+    label : str
+        variable label to use in column header
+    units : Optional[str], optional
+        units to use in column name, if not None, by default None
+    use_units : bool, optional
+        Users can choose not to include units in column name, by default True
+
+    Returns
+    -------
+    str
+        string to use as column name
+    """
+    
     if units is None or not use_units:
         return f"{label}"
     else:
         return f"{label} [{units}]"
 
 
-def make_filter(internal_id: int, parameterGroupId: Optional[int] = None):
+def make_filter(internal_id: int, parameterGroupId: Optional[int] = None) -> str:
+    """Make filter for Axiom Sensors API.
+
+    Parameters
+    ----------
+    internal_id : int
+        internal id for station. Not the dataset_id or uuid.
+    parameterGroupId : Optional[int], optional
+        Parameter Group ID to narrow search, by default None
+
+    Returns
+    -------
+    str
+        filter to use in station metadata and data access
+    """
     
     filter = f"%7B%22stations%22:%5B%22{internal_id}%22%5D%7D"
     
@@ -295,7 +299,7 @@ def make_filter(internal_id: int, parameterGroupId: Optional[int] = None):
 
 
 def make_data_url(filter: str, start_time: str, end_time: str, binned: bool = False, bin_interval: Optional[str] = None) -> str:
-    """Create url for accessing sensor data.
+    """Create url for accessing sensor data, raw or binned.
 
     Parameters
     ----------
@@ -313,7 +317,7 @@ def make_data_url(filter: str, start_time: str, end_time: str, binned: bool = Fa
     Returns
     -------
     str
-        _description_
+        URL from which to access data.
     """
 
     # handle start and end dates (maybe this should happen in cat?)
@@ -326,13 +330,49 @@ def make_data_url(filter: str, start_time: str, end_time: str, binned: bool = Fa
         return f"{baseurl}/observations/filter/custom?filter={filter}&start={start_date}Z&end={end_date}Z"
 
 
-def make_metadata_url(filter):
+def make_metadata_url(filter: str) -> str:
+    """Make url for finding metadata
+
+    Parameters
+    ----------
+    filter : str
+        filter for Sensors API. Use ``make_filter`` to make this.
+
+    Returns
+    -------
+    str
+        url for metadata.
+    """
     return f"{baseurl}/metadata/filter/custom?filter={filter}"
 
 
-def make_search_docs_url(dataset_id):
+def make_search_docs_url(dataset_id: str) -> str:
+    """Url for Axiom Search docs.
+
+    Parameters
+    ----------
+    dataset_id : str
+        dataset_id or uuid.
+
+    Returns
+    -------
+    str
+        Url for finding Axiom Search docs
+    """
     return f"https://search.axds.co/v2/docs?verbose=false&id={dataset_id}"
 
 
-def response_from_url(url):
+def response_from_url(url: str) -> Union[list,dict]:
+    """Return response from url.
+
+    Parameters
+    ----------
+    url : str
+        URL to check.
+
+    Returns
+    -------
+    list, dict
+        should be a list or dict depending on the url
+    """
     return requests.get(url, headers=search_headers).json()

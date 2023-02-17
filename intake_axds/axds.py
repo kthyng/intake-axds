@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 from intake.source import base
 from . import __version__
 import pandas as pd
@@ -19,19 +19,62 @@ class AXDSSensorSource(base.DataSource):
     -------
     Dataframe
     """
+
     name = 'axds-sensor'
     version = __version__
     container = 'dataframe'
     partition_access = True
     
     
-    def __init__(self, internal_id=None, dataset_id=None, start_time=None, end_time=None, qartod: bool = False, use_units: bool = True, metadata=None, binned: bool = False, bin_interval: Optional[str] = None):
+    def __init__(self, internal_id: Optional[int] = None, dataset_id: Optional[str] = None, start_time: Optional[str] = None, end_time: Optional[str] = None, qartod: Union[int, List[int],bool] = False, use_units: bool = True, metadata=None, binned: bool = False, bin_interval: Optional[str] = None):
+        """_summary_
+
+        Parameters
+        ----------
+        internal_id : Optional[int], optional
+            Internal station id for Axiom, by default None. Not the UUID or dataset_id. Need to input internal_id or dataset_id. If both are input, be sure they are for the same station.
+        dataset_id : Optional[str], optional
+            The UUID for the station, by default None. Not the internal_id. Need to input internal_id or dataset_id. If both are input, be sure they are for the same station.
+        start_time : Optional[str], optional
+            At what datetime for data to start, by default None. Must be interpretable by pandas ``Timestamp``. If not input, the datetime at which the dataset starts will be used.
+        end_time : Optional[str], optional
+            At what datetime for data to end, by default None. Must be interpretable by pandas ``Timestamp``. If not input, the datetime at which the dataset ends will be used.
+        qartod : bool, int, list, optional
+            Whether to return QARTOD agg flags when available, which is only for sensor_stations. Can instead input an int or a list of ints representing the _qa_agg flags for which to return data values. More information about QARTOD testing and flags can be found here: https://cdn.ioos.noaa.gov/media/2020/07/QARTOD-Data-Flags-Manual_version1.2final.pdf. Only used by datatype "sensor_station".
+            
+            Examples of ways to use this input are:
+            
+            * ``qartod=True``: Return aggregate QARTOD flags as a column for each data variable.
+            * ``qartod=False``: Do not return any QARTOD flag columns.
+            * ``qartod=1``: nan any data values for which the aggregated QARTOD flags are not equal to 1.
+            * ``qartod=[1,3]``: nan any data values for which the aggregated QARTOD flags are not equal to 1 or 3.
+            
+            Flags are:
+            
+            * 1: Pass
+            * 2: Not Evaluated
+            * 3: Suspect
+            * 4: Fail
+            * 9: Missing Data
+        
+        use_units : bool, optional
+            If True include units in column names. Syntax is "standard_name [units]". If False, no units. Then syntax for column names is "standard_name". This is currently specific to sensor_station only. Only used by datatype "sensor_station".
+        metadata : dict, optional
+            Metadata for catalog.
+        binned : bool, optional
+            True for binned data, False for raw, by default False. Only used by datatype "sensor_station".
+        bin_interval : Optional[str], optional
+            If ``binned=True``, input the binning interval to return. Options are hourly, daily, weekly, monthly, yearly. If bin_interval is input, binned is set to True. Only used by datatype "sensor_station".
+
+        Raises
+        ------
+        ValueError
+            _description_
+        """
         
         if internal_id is None and dataset_id is None:
             raise ValueError("internal_id and dataset_id cannot both be None. Input one of them.")
     
-        # self.url_search_base = "https://search.axds.co/v2/search?portalId=-1&page=1&pageSize=10000&verbose=true"
-        # self.url_docs_base = "https://search.axds.co/v2/docs?verbose=true"
         self.dataset_id = dataset_id
         self.start_time = start_time
         self.end_time = end_time
@@ -81,24 +124,31 @@ class AXDSSensorSource(base.DataSource):
         Following Sensor API
         https://admin.axds.co/#!/sensors/api/overview
         """
+
         filters = []
-        # import pdb; pdb.set_trace()
+
         if self.metadata["version"] == 1:
             pgids = [self.metadata["variables_details"][var]["parameterGroupId"] for var in self.metadata["variables_details"]]
             for pgid in list(set(pgids)):
                 filters.append(make_filter(self.internal_id, pgid))
-                # filters.append(f"%7B%22stations%22%3A%5B{self.internal_id}%5D%2C%22parameterGroups%22%3A%5B{pgid}%5D%7D")
         else:
             filters.append(make_filter(self.internal_id))
-            # filters.append(f"%7B%22stations%22:%5B%22{self.internal_id}%22%5D%7D")
-            # filters.append(f"%7B%22stations%22%3A%5B{self.internal_id}%5D")
         return filters
     
-    def _load_to_dataframe(self, url):
+    def _load_to_dataframe(self, url: str) -> pd.DataFrame:
         """load from raw data url to DataFrame.
         
         For V1 stations the result of a call to this function will be one of potentially many calls for data, but there will be only one loop below in a call.
         For V2 stations the result of a call to this function will be the only call for data, but there may be several loops in the call.
+        
+        Parameters
+        ----------
+        url : str
+            URL to find data from.
+        
+        Returns:
+        DataFrame
+            Data.
         """
         data_raw = response_from_url(url)
 
@@ -130,7 +180,7 @@ class AXDSSensorSource(base.DataSource):
             if feed["metadata"]["lon"] is not None or feed["metadata"]["lat"] is not None:
                 lon, lat = feed["metadata"]["lon"], feed["metadata"]["lat"]
                 raise ValueError(f"lon/lat should be None for sensors but are {lon}, {lat}.")
-            # import pdb; pdb.set_trace()
+
             # different names for data sets depending on if binned or not
             if self.binned:
                 metadata_values_name = "avgVals"
@@ -162,7 +212,7 @@ class AXDSSensorSource(base.DataSource):
                     label = [var for var in self.metadata["variables_details"] if self.metadata["variables_details"][var]["deviceId"] == qa_cols[index]["deviceId"]][0]
                     qa_cols[index]["label"] = f"{label}_qc_agg"
                     qa_cols[index]["column_name"] = qa_cols[index]["label"]
-                    # import pdb; pdb.set_trace()
+
                     # match deviceId between data_col and qa_col to get column name associated with qa_col
                     name = [data_cols[ind]["column_name"] for ind in data_cols if data_cols[ind]["deviceId"] == qa_cols[index]["deviceId"]][0]
                     qa_cols[index]["data_name"] = name
@@ -171,7 +221,6 @@ class AXDSSensorSource(base.DataSource):
             col_names = [columns[i]["column_name"] for i in list(columns)]
             ind_names = [indices[i]["column_name"] for i in list(indices)]
             
-            # import pdb; pdb.set_trace()  
             # do this in steps in case we are dropping QA columns
             df = pd.DataFrame(feed["data"])
             icolumns_to_keep = list(indices) + list(columns)
@@ -195,15 +244,14 @@ class AXDSSensorSource(base.DataSource):
                 df.drop(labels=qa_name, axis=1, inplace=True)
                                 
             dfs.append(df)
-        # df = pd.concat(dfs, axis=1)
-        # dfs[0].join(dfs[1:], how='outer', sort=True)
 
         df = dfs[0]
+
         # this gets different and I think better results than dfs[0].join(dfs[1:], how="outer", sort=True)
         # even though they should probably return the same thing.
         for i in range(1, len(dfs)):
             df = df.join(dfs[i], how='outer', sort=True) 
-        # import pdb; pdb.set_trace()
+
         return df
 
     def _load(self):
