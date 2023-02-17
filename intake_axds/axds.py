@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 from intake.source import base
 from . import __version__
 import pandas as pd

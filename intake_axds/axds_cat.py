@@ -31,7 +31,7 @@ class AXDSCatalog(Catalog):
 
     def __init__(
         self,
-        datatype: str = "platform2",
+        datatype: str,
         keys_to_match: Optional[Union[str, list]] = None,
         standard_names: Optional[Union[str, list]] = None,
         bbox: Optional[Tuple[float, float, float, float]] = None,
@@ -49,7 +49,7 @@ class AXDSCatalog(Catalog):
         name: str = "catalog",
         description: str = "Catalog of Axiom assets.",
         metadata: dict = None,
-        ttl: int = 86400,
+        ttl: Optional[int] = None,
         **kwargs,
     ):
         """Initialize an Axiom Catalog.
@@ -115,7 +115,7 @@ class AXDSCatalog(Catalog):
         verbose : bool, optional
             Set to True for helpful information.
         ttl : int, optional
-            Time to live for catalog (in seconds). How long before force-reloading catalog. Set to None to not do this. Currently default is set to a large number because the available version of intake does not have a change to accept None.
+            Time to live for catalog (in seconds). How long before force-reloading catalog. Set to None to not do this.
         name : str, optional
             Name for catalog.
         description : str, optional
@@ -228,7 +228,7 @@ class AXDSCatalog(Catalog):
         elif standard_names is not None:
             self.pglabels = match_std_names_to_parameter(astype(standard_names, list))
         else:
-            self.pglabels = []
+            self.pglabels = [None]
 
         # Put together catalog-level stuff
         if metadata is None:
@@ -337,7 +337,6 @@ class AXDSCatalog(Catalog):
         ValueError
             if no results found.
         """
-
 
         combined_results = []
         first_loop = True
