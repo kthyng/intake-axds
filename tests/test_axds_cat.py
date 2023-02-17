@@ -179,7 +179,10 @@ def test_axds_catalog_platform_search_variable_std_name(mock_requests):
         FakeResponse(),
     ]
 
-    cat = AXDSCatalog(datatype="platform2", standard_names=["relative_humidity", "wind_gust_to_direction"])
+    cat = AXDSCatalog(
+        datatype="platform2",
+        standard_names=["relative_humidity", "wind_gust_to_direction"],
+    )
     assert list(cat) == ["test_platform_parquet", "test_platform_csv"]
     assert cat["test_platform_parquet"].describe()["args"]["urlpath"] == "fake.parquet"
     assert sorted(cat.pglabels) == ["Humidity: Relative Humidity", "Winds: Gusts"]

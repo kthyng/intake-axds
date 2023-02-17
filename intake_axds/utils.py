@@ -1,13 +1,14 @@
 """Utils to run."""
 
 from importlib.metadata import PackageNotFoundError, version
+from operator import itemgetter
 from typing import Optional, Union
 
 import cf_pandas as cfp
-import requests
-from operator import itemgetter
-from shapely import wkt
 import pandas as pd
+import requests
+
+from shapely import wkt
 
 
 search_headers = {"Accept": "application/json"}
@@ -207,43 +208,49 @@ def load_metadata(datatype: str, results: dict) -> dict:  #: Dict[str, str]
         metadata.update(dict(zip(keys, p1.bounds)))
 
         metadata["variables"] = list(results["source"]["meta"]["variables"].keys())
-    
+
     elif datatype == "sensor_station":
-        
+
         # INSTITUTION?
         # location is lon, lat, depth and type
         # e.g. {'coordinates': [-123.711083, 38.914556, 0.0], 'type': 'Point'}
         lon, lat, depth = results["data"]["location"]["coordinates"]
         keys = ["minLongitude", "minLatitude", "maxLongitude", "maxLatitude"]
         metadata.update(dict(zip(keys, [lon, lat, lon, lat])))
-        
+
         # e.g. 106793
         metadata["internal_id"] = results["data"]["id"]
-        
+
         # variables, standard_names (or at least parameterNames)
         figs = results["data"]["figures"]
-        
-        out = {subPlot["datasetVariableId"]: {"parameterGroupLabel": fig["label"], 
-                                                "parameterGroupId": fig["parameterGroupId"], 
-                                                "datasetVariableId": subPlot["datasetVariableId"], 
-                                                "parameterId": subPlot["parameterId"],
-                                                "label": subPlot["label"],
-                                                "deviceId": subPlot["deviceId"]}
-                for fig in figs for plot in fig["plots"] for subPlot in plot["subPlots"]}
+
+        out = {
+            subPlot["datasetVariableId"]: {
+                "parameterGroupLabel": fig["label"],
+                "parameterGroupId": fig["parameterGroupId"],
+                "datasetVariableId": subPlot["datasetVariableId"],
+                "parameterId": subPlot["parameterId"],
+                "label": subPlot["label"],
+                "deviceId": subPlot["deviceId"],
+            }
+            for fig in figs
+            for plot in fig["plots"]
+            for subPlot in plot["subPlots"]
+        }
         metadata["variables_details"] = out
         metadata["variables"] = list(out.keys())
-        
+
         # include datumConversion info if present
         if len(results["data"]["datumConversions"]) > 0:
             metadata["datumConversions"] = results["data"]["datumConversions"]
-        
+
         filter = f"%7B%22stations%22:%5B%22{metadata['internal_id']}%22%5D%7D"
         baseurl = "https://sensors.axds.co/api"
         metadata_url = f"{baseurl}/metadata/filter/custom?filter={filter}"
         metadata["metadata_url"] = metadata_url
 
         # also save units here
-        
+
         # 1 or 2?
         metadata["version"] = results["data"]["version"]
 
@@ -267,7 +274,7 @@ def make_label(label: str, units: Optional[str] = None, use_units: bool = True) 
     str
         string to use as column name
     """
-    
+
     if units is None or not use_units:
         return f"{label}"
     else:
@@ -289,16 +296,22 @@ def make_filter(internal_id: int, parameterGroupId: Optional[int] = None) -> str
     str
         filter to use in station metadata and data access
     """
-    
+
     filter = f"%7B%22stations%22:%5B%22{internal_id}%22%5D%7D"
-    
+
     if parameterGroupId is not None:
         filter += f"%2C%22parameterGroups%22%3A%5B{parameterGroupId}%5D%7D"
-    
+
     return filter
 
 
-def make_data_url(filter: str, start_time: str, end_time: str, binned: bool = False, bin_interval: Optional[str] = None) -> str:
+def make_data_url(
+    filter: str,
+    start_time: str,
+    end_time: str,
+    binned: bool = False,
+    bin_interval: Optional[str] = None,
+) -> str:
     """Create url for accessing sensor data, raw or binned.
 
     Parameters
@@ -323,7 +336,7 @@ def make_data_url(filter: str, start_time: str, end_time: str, binned: bool = Fa
     # handle start and end dates (maybe this should happen in cat?)
     start_date = pd.Timestamp(start_time).strftime("%Y-%m-%dT%H:%M:%S")
     end_date = pd.Timestamp(end_time).strftime("%Y-%m-%dT%H:%M:%S")
-        
+
     if binned:
         return f"{baseurl}/observations/filter/custom/binned?filter={filter}&start={start_date}Z&end={end_date}Z&binInterval={bin_interval}"
     else:
@@ -362,7 +375,7 @@ def make_search_docs_url(dataset_id: str) -> str:
     return f"https://search.axds.co/v2/docs?verbose=false&id={dataset_id}"
 
 
-def response_from_url(url: str) -> Union[list,dict]:
+def response_from_url(url: str) -> Union[list, dict]:
     """Return response from url.
 
     Parameters

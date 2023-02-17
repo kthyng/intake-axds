@@ -2,7 +2,8 @@
 intake-axds: Intake approach for Axiom assets.
 """
 
-import intake
+import intake  # noqa: F401, need this to eliminate possibility of circular import
+
 # from .axds_cat import AXDSCatalog
 from .utils import (  # noqa: F401
     _get_version,
@@ -11,5 +12,5 @@ from .utils import (  # noqa: F401
     return_parameter_options,
 )
 
-__version__ = _get_version()
 
+__version__ = _get_version()
