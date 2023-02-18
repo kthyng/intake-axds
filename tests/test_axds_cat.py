@@ -153,7 +153,7 @@ def test_axds_catalog_platform_search_variable_vocab(mock_requests):
     }
     cf_pandas.set_options(custom_criteria=criteria)
 
-    cat = AXDSCatalog(keys_to_match=["wind", "humid"])
+    cat = AXDSCatalog(datatype="platform2", keys_to_match=["wind", "humid"])
     assert list(cat) == ["test_platform_parquet", "test_platform_csv"]
     assert cat["test_platform_parquet"].describe()["args"]["urlpath"] == "fake.parquet"
     assert sorted(cat.pglabels) == ["Humidity: Relative Humidity", "Winds: Gusts"]
@@ -179,7 +179,10 @@ def test_axds_catalog_platform_search_variable_std_name(mock_requests):
         FakeResponse(),
     ]
 
-    cat = AXDSCatalog(standard_names=["relative_humidity", "wind_gust_to_direction"])
+    cat = AXDSCatalog(
+        datatype="platform2",
+        standard_names=["relative_humidity", "wind_gust_to_direction"],
+    )
     assert list(cat) == ["test_platform_parquet", "test_platform_csv"]
     assert cat["test_platform_parquet"].describe()["args"]["urlpath"] == "fake.parquet"
     assert sorted(cat.pglabels) == ["Humidity: Relative Humidity", "Winds: Gusts"]
@@ -207,16 +210,17 @@ def test_invalid_kwarg_search():
     with pytest.raises(ValueError):
         AXDSCatalog(datatype="platform2", kwargs_search=kw)
 
-    # missing min_time
-    kw = {
-        "min_lon": -180,
-        "max_lon": -156,
-        "min_lat": 50,
-        "max_lat": 66,
-        "max_time": "2021-4-2",
-    }
-    with pytest.raises(ValueError):
-        AXDSCatalog(datatype="platform2", kwargs_search=kw)
+    # missing min_time is now ok
+    # # missing min_time
+    # kw = {
+    #     "min_lon": -180,
+    #     "max_lon": -156,
+    #     "min_lat": 50,
+    #     "max_lat": 66,
+    #     "max_time": "2021-4-2",
+    # }
+    # with pytest.raises(ValueError):
+    #     AXDSCatalog(datatype="platform2", kwargs_search=kw)
 
     # min_lon less than -180
     kw = {
@@ -245,10 +249,10 @@ def test_verbose(mock_requests, capfd):
 @mock.patch("requests.get")
 def test_no_results(mock_requests):
     with pytest.raises(ValueError):
-        AXDSCatalog()
+        AXDSCatalog(datatype="sensor_station")
 
 
 @mock.patch("requests.get")
 def test_not_a_standard_name(mock_requests):
     with pytest.raises(ValueError):
-        AXDSCatalog(standard_names="not_a_standard_name")
+        AXDSCatalog(datatype="sensor_station", standard_names="not_a_standard_name")

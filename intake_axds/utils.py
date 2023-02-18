@@ -1,13 +1,18 @@
 """Utils to run."""
 
 from importlib.metadata import PackageNotFoundError, version
-from typing import Optional
+from operator import itemgetter
+from typing import Optional, Union
 
 import cf_pandas as cfp
+import pandas as pd
 import requests
+
+from shapely import wkt
 
 
 search_headers = {"Accept": "application/json"}
+baseurl = "https://sensors.axds.co/api"
 
 
 def _get_version() -> str:
@@ -160,15 +165,227 @@ def match_std_names_to_parameter(standard_names: list) -> list:
     return list(set(pglabels))
 
 
-def return_docs_response(dataset_id: str) -> dict:
-    """Return request response to docs url in json.
+def load_metadata(datatype: str, results: dict) -> dict:  #: Dict[str, str]
+    """Load metadata for catalog entry.
+
+    Parameters
+    ----------
+    results : dict
+        Returned results from call to server for a single dataset.
+
+    Returns
+    -------
+    dict
+        Metadata to store with catalog entry.
+    """
+
+    # matching names in intake-erddap
+    keys = ["datasetID", "title", "summary", "type", "minTime", "maxTime"]
+    # names of keys in Axiom system.
+    items = [
+        "uuid",
+        "label",
+        "description",
+        "type",
+        "start_date_time",
+        "end_date_time",
+    ]
+    values = itemgetter(*items)(results)
+    metadata = dict(zip(keys, values))
+
+    if datatype == "platform2":
+        metadata["institution"] = (
+            results["source"]["meta"]["attributes"]["institution"]
+            if "institution" in results["source"]["meta"]["attributes"]
+            else None
+        )
+        metadata["geospatial_bounds"] = results["source"]["meta"]["attributes"][
+            "geospatial_bounds"
+        ]
+
+        p1 = wkt.loads(metadata["geospatial_bounds"])
+        keys = ["minLongitude", "minLatitude", "maxLongitude", "maxLatitude"]
+        metadata.update(dict(zip(keys, p1.bounds)))
+
+        metadata["variables"] = list(results["source"]["meta"]["variables"].keys())
+
+    elif datatype == "sensor_station":
+
+        # INSTITUTION?
+        # location is lon, lat, depth and type
+        # e.g. {'coordinates': [-123.711083, 38.914556, 0.0], 'type': 'Point'}
+        lon, lat, depth = results["data"]["location"]["coordinates"]
+        keys = ["minLongitude", "minLatitude", "maxLongitude", "maxLatitude"]
+        metadata.update(dict(zip(keys, [lon, lat, lon, lat])))
+
+        # e.g. 106793
+        metadata["internal_id"] = results["data"]["id"]
+
+        # variables, standard_names (or at least parameterNames)
+        figs = results["data"]["figures"]
+
+        out = {
+            subPlot["datasetVariableId"]: {
+                "parameterGroupLabel": fig["label"],
+                "parameterGroupId": fig["parameterGroupId"],
+                "datasetVariableId": subPlot["datasetVariableId"],
+                "parameterId": subPlot["parameterId"],
+                "label": subPlot["label"],
+                "deviceId": subPlot["deviceId"],
+            }
+            for fig in figs
+            for plot in fig["plots"]
+            for subPlot in plot["subPlots"]
+        }
+        metadata["variables_details"] = out
+        metadata["variables"] = list(out.keys())
+
+        # include datumConversion info if present
+        if len(results["data"]["datumConversions"]) > 0:
+            metadata["datumConversions"] = results["data"]["datumConversions"]
+
+        filter = f"%7B%22stations%22:%5B%22{metadata['internal_id']}%22%5D%7D"
+        baseurl = "https://sensors.axds.co/api"
+        metadata_url = f"{baseurl}/metadata/filter/custom?filter={filter}"
+        metadata["metadata_url"] = metadata_url
+
+        # also save units here
+
+        # 1 or 2?
+        metadata["version"] = results["data"]["version"]
+
+    return metadata
+
+
+def make_label(label: str, units: Optional[str] = None, use_units: bool = True) -> str:
+    """making column name
+
+    Parameters
+    ----------
+    label : str
+        variable label to use in column header
+    units : Optional[str], optional
+        units to use in column name, if not None, by default None
+    use_units : bool, optional
+        Users can choose not to include units in column name, by default True
+
+    Returns
+    -------
+    str
+        string to use as column name
+    """
+
+    if units is None or not use_units:
+        return f"{label}"
+    else:
+        return f"{label} [{units}]"
+
+
+def make_filter(internal_id: int, parameterGroupId: Optional[int] = None) -> str:
+    """Make filter for Axiom Sensors API.
+
+    Parameters
+    ----------
+    internal_id : int
+        internal id for station. Not the dataset_id or uuid.
+    parameterGroupId : Optional[int], optional
+        Parameter Group ID to narrow search, by default None
+
+    Returns
+    -------
+    str
+        filter to use in station metadata and data access
+    """
+
+    filter = f"%7B%22stations%22:%5B%22{internal_id}%22%5D%7D"
+
+    if parameterGroupId is not None:
+        filter += f"%2C%22parameterGroups%22%3A%5B{parameterGroupId}%5D%7D"
+
+    return filter
+
+
+def make_data_url(
+    filter: str,
+    start_time: str,
+    end_time: str,
+    binned: bool = False,
+    bin_interval: Optional[str] = None,
+) -> str:
+    """Create url for accessing sensor data, raw or binned.
+
+    Parameters
+    ----------
+    filter : str
+        get this from ``make_filter()``; contains station and potentially variable info.
+    start_time : str
+        e.g. "2022-1-1". Needs to be interpretable by pandas ``Timestamp``.
+    end_time : str
+        e.g. "2022-1-2". Needs to be interpretable by pandas ``Timestamp``.
+    binned : bool, optional
+        True for binned data, False for raw, by default False.
+    bin_interval : Optional[str], optional
+        If ``binned=True``, input the binning interval to return. Options are hourly, daily, weekly, monthly, yearly.
+
+    Returns
+    -------
+    str
+        URL from which to access data.
+    """
+
+    # handle start and end dates (maybe this should happen in cat?)
+    start_date = pd.Timestamp(start_time).strftime("%Y-%m-%dT%H:%M:%S")
+    end_date = pd.Timestamp(end_time).strftime("%Y-%m-%dT%H:%M:%S")
+
+    if binned:
+        return f"{baseurl}/observations/filter/custom/binned?filter={filter}&start={start_date}Z&end={end_date}Z&binInterval={bin_interval}"
+    else:
+        return f"{baseurl}/observations/filter/custom?filter={filter}&start={start_date}Z&end={end_date}Z"
+
+
+def make_metadata_url(filter: str) -> str:
+    """Make url for finding metadata
+
+    Parameters
+    ----------
+    filter : str
+        filter for Sensors API. Use ``make_filter`` to make this.
+
+    Returns
+    -------
+    str
+        url for metadata.
+    """
+    return f"{baseurl}/metadata/filter/custom?filter={filter}"
+
+
+def make_search_docs_url(dataset_id: str) -> str:
+    """Url for Axiom Search docs.
 
     Parameters
     ----------
     dataset_id : str
-        ID for dataset.
-    """
+        dataset_id or uuid.
 
-    url_docs_base = "https://search.axds.co/v2/docs?verbose=true"
-    url = f"{url_docs_base}&id={dataset_id}"
-    return requests.get(url, headers=search_headers).json()[0]
+    Returns
+    -------
+    str
+        Url for finding Axiom Search docs
+    """
+    return f"https://search.axds.co/v2/docs?verbose=false&id={dataset_id}"
+
+
+def response_from_url(url: str) -> Union[list, dict]:
+    """Return response from url.
+
+    Parameters
+    ----------
+    url : str
+        URL to check.
+
+    Returns
+    -------
+    list, dict
+        should be a list or dict depending on the url
+    """
+    return requests.get(url, headers=search_headers).json()
