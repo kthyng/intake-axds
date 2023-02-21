@@ -53,11 +53,11 @@ class AXDSCatalog(Catalog):
         For explicit search queries for datasets that any contain of the terms specified in this keyword argument. Results from multiple values will be combined according to ``query_type``.
     kwargs_search : dict, optional
         Keyword arguments to input to search on the server before making the catalog. Options are:
-        
+
         * to search by bounding box: include all of min_lon, max_lon, min_lat, max_lat: (int, float). Longitudes must be between -180 to +180.
         * to search within a datetime range: include both of min_time, max_time: interpretable datetime string, e.g., "2021-1-1"
         * to search using a textual keyword: include `search_for` as a string or list of strings. Results from multiple values will be combined according to ``query_type``.
-        
+
     query_type : str, default "union"
         Specifies how the catalog should apply the query parameters. Choices are:
 
@@ -103,10 +103,10 @@ class AXDSCatalog(Catalog):
         Metadata for catalog.
     kwargs:
         Other input arguments are passed to the intake Catalog class. They can includegetenv, getshell, persist_mode, storage_options, and user_parameters, in addition to some that are surfaced directly in this class.
-    
+
     Notes
     -----
-    
+
     only datatype sensor_station uses the following parameters: qartod, use_units, binned, bin_interval
 
     datatype of sensor_station skips webcam data.

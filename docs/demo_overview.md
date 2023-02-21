@@ -81,7 +81,7 @@ Flags are:
 * 4: Fail
 * 9: Missing Data
 
-More information on QARTOD is available [here](https://cdn.ioos.noaa.gov/media/2020/07/QARTOD-Data-Flags-Manual_version1.2final.pdf). 
+More information on QARTOD is available [here](https://cdn.ioos.noaa.gov/media/2020/07/QARTOD-Data-Flags-Manual_version1.2final.pdf).
 
 ##### Units
 
@@ -152,22 +152,22 @@ cat[list(cat)[0]]
 You can also narrow your search by one or more keywords, by passing a string or list of strings with `kwargs_search["search_for"]` or explicitly using `search_for`. If you input more than one string, be aware that the multiple searches required will be combined according to `query_type`, either as a logical OR if `query_type=="union"` or as a logical AND if `query_type=="intersection"`.
 
 ```{code-cell} ipython3
-cat = intake.open_axds_cat(datatype='platform2', search_for=["whale", "bering"], 
+cat = intake.open_axds_cat(datatype='platform2', search_for=["whale", "bering"],
                            query_type="intersection", page_size=1000)
 len(cat)
 ```
 
 ```{code-cell} ipython3
-cat = intake.open_axds_cat(datatype='platform2', search_for=["whale", "bering"], 
+cat = intake.open_axds_cat(datatype='platform2', search_for=["whale", "bering"],
                            query_type="union", page_size=1000)
 len(cat)
 ```
 
 ## Filter by variable
 
-This section describes two approaches for searching by variable. As with `search_for`, how multiple variable requests are combined depends on the input choice of `query_type`. However, in the case of variables there are three options for `query_type`: 
+This section describes two approaches for searching by variable. As with `search_for`, how multiple variable requests are combined depends on the input choice of `query_type`. However, in the case of variables there are three options for `query_type`:
 
-* `query_type=="union"` logical OR 
+* `query_type=="union"` logical OR
 * `query_type=="intersection"` as a logical AND
 * `query_type=="intersection_constrained"` as a logical AND but also only the requested variables are returned.
 
@@ -188,7 +188,7 @@ Make a catalog of sensors that contain either of the standard_names input.
 
 ```{code-cell} ipython3
 std_names = ["sea_water_practical_salinity", "sea_water_temperature"]
-cat = intake.open_axds_cat(datatype="sensor_station", standard_names=std_names, 
+cat = intake.open_axds_cat(datatype="sensor_station", standard_names=std_names,
                            query_type="union")
 cat[list(cat)[0]].metadata["variables"]
 ```
@@ -197,7 +197,7 @@ Make a catalog of sensors that contain both of the standard_names input.
 
 ```{code-cell} ipython3
 std_names = ["sea_water_practical_salinity", "sea_water_temperature"]
-cat = intake.open_axds_cat(datatype="sensor_station", standard_names=std_names, 
+cat = intake.open_axds_cat(datatype="sensor_station", standard_names=std_names,
                            query_type="intersection", page_size=100)
 cat[list(cat)[0]].metadata["variables"]
 ```
@@ -206,7 +206,7 @@ Make a catalog of sensors that contain both of the standard_names input but then
 
 ```{code-cell} ipython3
 std_names = ["sea_water_practical_salinity", "sea_water_temperature"]
-cat = intake.open_axds_cat(datatype="sensor_station", standard_names=std_names, 
+cat = intake.open_axds_cat(datatype="sensor_station", standard_names=std_names,
                            query_type="intersection_constrained", page_size=100)
 cat
 ```
