@@ -29,6 +29,11 @@ class AXDSCatalog(Catalog):
     Makes data sources out of all datasets for a given AXDS data type.
 
     Have this cover all data types for now, then split out.
+    
+    Attributes
+    ----------
+    pglabels
+    pgids
     """
 
     name = "axds_cat"
@@ -87,12 +92,12 @@ class AXDSCatalog(Catalog):
             * to search within a datetime range: include both of min_time, max_time: interpretable datetime string, e.g., "2021-1-1"
             * to search using a textual keyword: include `search_for` as a string or list of strings. Results from multiple values will be combined according to ``query_type``.
         query_type : str, default "union"
-            Specifies how the catalog should apply the query parameters. Choices are
-            ``"union"`` or ``"intersection"``. If the ``query_type`` is set to
-            ``"intersection"``, then the set of results will be the intersection of
-            each individual query made to ERDDAP. This is equivalent to a logical
-            AND of the results. If the value is ``"union"`` then the results will be
-            the union of each resulting dataset. This is equivalent to a logical OR.
+            Specifies how the catalog should apply the query parameters. Choices are:
+            
+            * ``"union"``: the results will be the union of each resulting dataset. This is equivalent to a logical OR.
+            * ``"intersection"``: the set of results will be the intersection of each individual query made to the server. This is equivalent to a logical AND of the results.
+            * ``"intersection_constrained"``: the set of results will be the intersection of queries but also only the variables requested (using either ``keys_to_match`` or ``standard_names``) will be returned in the DataFrame, instead of all available variables. This only applies to ``datatype=="sensor_station"``.
+            
         qartod : bool, int, list, optional
             Whether to return QARTOD agg flags when available, which is only for sensor_stations. Can instead input an int or a list of ints representing the _qa_agg flags for which to return data values. More information about QARTOD testing and flags can be found here: https://cdn.ioos.noaa.gov/media/2020/07/QARTOD-Data-Flags-Manual_version1.2final.pdf. Only used by datatype "sensor_station". Is not available if `binned==True`.
 
@@ -157,11 +162,19 @@ class AXDSCatalog(Catalog):
                 f"Datatype must be one of {allowed_datatypes} but is {datatype}"
             )
 
-        if query_type == "intersection" and page_size == 10:
+        allowed_query_types = ("union", "intersection", "intersection_constrained")
+        if query_type not in allowed_query_types:
+            raise KeyError(
+                f"`query_type` must be one of {allowed_query_types} but is {query_type}"
+            )
+        if (query_type == "intersection" or query_type == "intersection_constrained") and page_size == 10:
             if verbose:
                 print(
                     "With `query_type` of 'intersection' you probably want to use a larger `page_size` than the default of 10."
                 )
+        
+        if query_type == "intersection_constrained" and datatype == "platform2":
+            raise ValueError("`query_type=='intersection_constrained'` does not apply to `datatype=='platform2'`.")
 
         # can instead input the kwargs_search outside of that dictionary
         if bbox is not None:
@@ -238,19 +251,21 @@ class AXDSCatalog(Catalog):
             )
 
         self.pglabels: List[Union[str, None]]
+        self.pgids: List[Union[int, None]]
         if keys_to_match is not None:
-            self.pglabels = match_key_to_parameter(astype(keys_to_match, list))
+            self.pglabels, self.pgids = match_key_to_parameter(astype(keys_to_match, list))
         elif standard_names is not None:
-            self.pglabels = match_std_names_to_parameter(astype(standard_names, list))
+            self.pglabels, self.pgids = match_std_names_to_parameter(astype(standard_names, list))
         else:
-            self.pglabels = [None]
+            self.pglabels, self.pgids = [None], [None]
 
         # Put together catalog-level stuff
         if metadata is None:
             metadata = {}
             metadata["kwargs_search"] = self.kwargs_search
-            metadata["pglabels"] = self.pglabels
-            # metadata["qartod"] = qartod
+            metadata["pglabels"] = list(self.pglabels)
+            metadata["pgids"] = list(self.pgids)
+            metadata["query_type"] = query_type
             # metadata["use_units"] = use_units
 
         super(AXDSCatalog, self).__init__(
@@ -378,7 +393,7 @@ class AXDSCatalog(Catalog):
             if self.query_type == "union":  # logical OR
                 combined_results.extend(res["results"])
 
-            elif self.query_type == "intersection":  # logical AND
+            elif self.query_type == "intersection" or self.query_type == "intersection_constrained":  # logical AND
                 if first_loop:  # initialize
                     combined_results = res["results"]
                     first_loop = False
@@ -480,6 +495,7 @@ class AXDSCatalog(Catalog):
                     "use_units": self.use_units,
                     "binned": self.binned,
                     "bin_interval": self.bin_interval,
+                    "only_pgids": list(self.pgids) if self.query_type == "intersection_constrained" else None,
                 }
                 plugin = AXDSSensorSource
 

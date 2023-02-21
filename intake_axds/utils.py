@@ -120,8 +120,12 @@ def match_key_to_parameter(
 
     # find parametergroup label to match id
     pglabels = [i["label"] for pgid in pgids for i in group_params if i["id"] == pgid]
+    
+    # want unique but ordered returned
+    return zip(*sorted(set(zip(pglabels, pgids))))
 
-    return list(set(pglabels))
+    # return pglabels, pgids
+    # return list(set(pglabels))
 
 
 def match_std_names_to_parameter(standard_names: list) -> list:
@@ -161,8 +165,12 @@ def match_std_names_to_parameter(standard_names: list) -> list:
 
     # find parametergroup label to match id
     pglabels = [i["label"] for pgid in pgids for i in group_params if i["id"] == pgid]
+    
+    # want unique but ordered returned
+    return zip(*sorted(set(zip(pglabels, pgids))))
 
-    return list(set(pglabels))
+    # return pglabels, pgids
+    # return list(set(pglabels))
 
 
 def load_metadata(datatype: str, results: dict) -> dict:  #: Dict[str, str]

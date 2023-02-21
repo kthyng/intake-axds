@@ -46,6 +46,7 @@ class AXDSSensorSource(base.DataSource):
         metadata=None,
         binned: bool = False,
         bin_interval: Optional[str] = None,
+        only_pgids: Optional[List[int]] = None,
     ):
         """_summary_
 
@@ -85,6 +86,8 @@ class AXDSSensorSource(base.DataSource):
             True for binned data, False for raw, by default False. Only used by datatype "sensor_station".
         bin_interval : Optional[str], optional
             If ``binned=True``, input the binning interval to return. Options are hourly, daily, weekly, monthly, yearly. If bin_interval is input, binned is set to True. Only used by datatype "sensor_station".
+        only_pgids : list, optional
+            If input, only return data associated with these parameterGroupIds. This is separate from parameterGroupLabels and parameterGroupIds that might be present in the metadata.
 
         Raises
         ------
@@ -103,6 +106,7 @@ class AXDSSensorSource(base.DataSource):
         self.internal_id = internal_id
         self.qartod = qartod
         self.use_units = use_units
+        self.only_pgids = only_pgids
 
         if bin_interval is not None:
             binned = True
@@ -143,6 +147,7 @@ class AXDSSensorSource(base.DataSource):
                 "use_units": self.use_units,
                 "binned": self.binned,
                 "bin_interval": bin_interval,
+                "only_pgids": self.only_pgids,
             }
         )
 
@@ -162,10 +167,15 @@ class AXDSSensorSource(base.DataSource):
         filters = []
 
         if self.metadata["version"] == 1:
-            pgids = [
-                self.metadata["variables_details"][var]["parameterGroupId"]
-                for var in self.metadata["variables_details"]
-            ]
+            
+            # if we should only return the requested variables, use the pgids input for this.
+            if self.only_pgids:
+                pgids = self.only_pgids
+            else:
+                pgids = [
+                    self.metadata["variables_details"][var]["parameterGroupId"]
+                    for var in self.metadata["variables_details"]
+                ]
             for pgid in list(set(pgids)):
                 filters.append(make_filter(self.internal_id, pgid))
         else:
@@ -205,6 +215,21 @@ class AXDSSensorSource(base.DataSource):
         # link to other metadata as needed
         dfs = []
         for feed in data_raw["data"]["groupedFeeds"]:
+
+            # different names for data sets depending on if binned or not
+            if self.binned:
+                metadata_values_name = "avgVals"
+            else:
+                metadata_values_name = "values"
+            
+            # for the case where we only return data from certain pgids, skip loop if this 
+            # data is not included
+            if self.only_pgids is not None:
+                if not any([var["parameterGroupId"] for var in feed["metadata"][metadata_values_name] if var["parameterGroupId"] in self.only_pgids]):
+                    continue
+
+            # import pdb; pdb.set_trace()
+            
             columns = {}  # all non-index columns in dataframe
             indices = {}  # indices for dataframe
 
@@ -234,12 +259,6 @@ class AXDSSensorSource(base.DataSource):
                 raise ValueError(
                     f"lon/lat should be None for sensors but are {lon}, {lat}."
                 )
-
-            # different names for data sets depending on if binned or not
-            if self.binned:
-                metadata_values_name = "avgVals"
-            else:
-                metadata_values_name = "values"
 
             # add data columns
             data_cols = {
@@ -328,7 +347,10 @@ class AXDSSensorSource(base.DataSource):
 
     @property
     def data_urls(self):
-        """Prepare to load in data by getting data_urls."""
+        """Prepare to load in data by getting data_urls.
+        
+        For V1 sources there will be a data_url per parameterGroupId but not for V2 sources.
+        """
         
         if not hasattr(self, "_data_urls"):
 
