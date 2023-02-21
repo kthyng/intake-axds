@@ -60,7 +60,7 @@ def test_parameters(mock_requests):
 
     mock_requests.return_value = FakeResponseParams()
 
-    output = utils.return_parameter_options()
+    output = utils.response_from_url(utils.contexturl)
     assert isinstance(output, dict)
 
     assert {"parameters", "parameterGroups"} >= output.keys()
