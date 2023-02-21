@@ -32,8 +32,10 @@ class AXDSCatalog(Catalog):
     
     Attributes
     ----------
-    pglabels
-    pgids
+    pglabels : list[str]
+        If ``keys_to_match`` or ``standard_names`` is input to search on, they are converted to parameterGroupLabels and saved to the catalog metadata.
+    pgids : list[int]
+        If ``keys_to_match`` or ``standard_names`` is input to search on, they are converted to parameterGroupIds and saved to the catalog metadata. In the case that ``query_type=="intersection_constrained"`` and ``datatype=="platform2"``, the pgids are passed to the sensor source so that only data from variables corresponding to those pgids are returned. 
     """
 
     name = "axds_cat"
