@@ -120,9 +120,9 @@ def match_key_to_parameter(
 
     # find parametergroup label to match id
     pglabels = [i["label"] for pgid in pgids for i in group_params if i["id"] == pgid]
-    
+
     # want unique but ordered returned
-    return zip(*sorted(set(zip(pglabels, pgids))))
+    return list(zip(*sorted(set(zip(pglabels, pgids)))))
 
     # return pglabels, pgids
     # return list(set(pglabels))
@@ -165,9 +165,9 @@ def match_std_names_to_parameter(standard_names: list) -> list:
 
     # find parametergroup label to match id
     pglabels = [i["label"] for pgid in pgids for i in group_params if i["id"] == pgid]
-    
+
     # want unique but ordered returned
-    return zip(*sorted(set(zip(pglabels, pgids))))
+    return list(zip(*sorted(set(zip(pglabels, pgids)))))
 
     # return pglabels, pgids
     # return list(set(pglabels))
@@ -217,17 +217,26 @@ def load_metadata(datatype: str, results: dict) -> dict:  #: Dict[str, str]
 
         # save variable details if they have a standard_name
         # some platforms have lots of variables that seem irrelevant
-        out = {attrs["attributes"]["standard_name"]: {
+        out = {
+            attrs["attributes"]["standard_name"]: {
                 "variable_name": varname,
-                "units": attrs["attributes"]["units"] if "units" in attrs["attributes"] else None,
-                "unit_id": attrs["attributes"]["unit_id"] if "unit_id" in attrs["attributes"] else None,
+                "units": attrs["attributes"]["units"]
+                if "units" in attrs["attributes"]
+                else None,
+                "unit_id": attrs["attributes"]["unit_id"]
+                if "unit_id" in attrs["attributes"]
+                else None,
                 "long_name": attrs["attributes"]["long_name"],
-                "parameter_id": attrs["attributes"]["parameter_id"] if "parameter_id" in attrs["attributes"] else None,}
-                for varname, attrs in results["source"]["meta"]["variables"].items() if "standard_name" in attrs["attributes"]}
+                "parameter_id": attrs["attributes"]["parameter_id"]
+                if "parameter_id" in attrs["attributes"]
+                else None,
+            }
+            for varname, attrs in results["source"]["meta"]["variables"].items()
+            if "standard_name" in attrs["attributes"]
+        }
 
         metadata["variables_details"] = out
         metadata["variables"] = list(out.keys())
-
 
     elif datatype == "sensor_station":
 
@@ -321,7 +330,7 @@ def make_filter(internal_id: int, parameterGroupId: Optional[int] = None) -> str
 
     if parameterGroupId is not None:
         filter += f"%2C%22parameterGroups%22%3A%5B{parameterGroupId}%5D"
-    
+
     # add ending }
     filter += "%7D"
 

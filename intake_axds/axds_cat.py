@@ -29,13 +29,13 @@ class AXDSCatalog(Catalog):
     Makes data sources out of all datasets for a given AXDS data type.
 
     Have this cover all data types for now, then split out.
-    
+
     Attributes
     ----------
     pglabels : list[str]
         If ``keys_to_match`` or ``standard_names`` is input to search on, they are converted to parameterGroupLabels and saved to the catalog metadata.
     pgids : list[int]
-        If ``keys_to_match`` or ``standard_names`` is input to search on, they are converted to parameterGroupIds and saved to the catalog metadata. In the case that ``query_type=="intersection_constrained"`` and ``datatype=="platform2"``, the pgids are passed to the sensor source so that only data from variables corresponding to those pgids are returned. 
+        If ``keys_to_match`` or ``standard_names`` is input to search on, they are converted to parameterGroupIds and saved to the catalog metadata. In the case that ``query_type=="intersection_constrained"`` and ``datatype=="platform2"``, the pgids are passed to the sensor source so that only data from variables corresponding to those pgids are returned.
     """
 
     name = "axds_cat"
@@ -95,11 +95,11 @@ class AXDSCatalog(Catalog):
             * to search using a textual keyword: include `search_for` as a string or list of strings. Results from multiple values will be combined according to ``query_type``.
         query_type : str, default "union"
             Specifies how the catalog should apply the query parameters. Choices are:
-            
+
             * ``"union"``: the results will be the union of each resulting dataset. This is equivalent to a logical OR.
             * ``"intersection"``: the set of results will be the intersection of each individual query made to the server. This is equivalent to a logical AND of the results.
             * ``"intersection_constrained"``: the set of results will be the intersection of queries but also only the variables requested (using either ``keys_to_match`` or ``standard_names``) will be returned in the DataFrame, instead of all available variables. This only applies to ``datatype=="sensor_station"``.
-            
+
         qartod : bool, int, list, optional
             Whether to return QARTOD agg flags when available, which is only for sensor_stations. Can instead input an int or a list of ints representing the _qa_agg flags for which to return data values. More information about QARTOD testing and flags can be found here: https://cdn.ioos.noaa.gov/media/2020/07/QARTOD-Data-Flags-Manual_version1.2final.pdf. Only used by datatype "sensor_station". Is not available if `binned==True`.
 
@@ -153,10 +153,12 @@ class AXDSCatalog(Catalog):
             binned = True
         self.binned = binned
         self.bin_interval = bin_interval
-        
+
         if self.binned:
             if self.qartod:
-                raise ValueError("QARTOD is not available for binned output. Set QARTOD to False or use raw data.")
+                raise ValueError(
+                    "QARTOD is not available for binned output. Set QARTOD to False or use raw data."
+                )
 
         allowed_datatypes = ("platform2", "sensor_station")
         if datatype not in allowed_datatypes:
@@ -169,14 +171,18 @@ class AXDSCatalog(Catalog):
             raise KeyError(
                 f"`query_type` must be one of {allowed_query_types} but is {query_type}"
             )
-        if (query_type == "intersection" or query_type == "intersection_constrained") and page_size == 10:
+        if (
+            query_type == "intersection" or query_type == "intersection_constrained"
+        ) and page_size == 10:
             if verbose:
                 print(
                     "With `query_type` of 'intersection' you probably want to use a larger `page_size` than the default of 10."
                 )
-        
+
         if query_type == "intersection_constrained" and datatype == "platform2":
-            raise ValueError("`query_type=='intersection_constrained'` does not apply to `datatype=='platform2'`.")
+            raise ValueError(
+                "`query_type=='intersection_constrained'` does not apply to `datatype=='platform2'`."
+            )
 
         # can instead input the kwargs_search outside of that dictionary
         if bbox is not None:
@@ -228,12 +234,17 @@ class AXDSCatalog(Catalog):
             if isinstance(self.kwargs_search["search_for"], str):
                 self.kwargs_search["search_for"] = [self.kwargs_search["search_for"]]
 
-        checks = [["min_lon", "max_lon", "min_lat", "max_lat"], ["min_time", "max_time"]]
+        checks = [
+            ["min_lon", "max_lon", "min_lat", "max_lat"],
+            ["min_time", "max_time"],
+        ]
         for check in checks:
             if any(key in self.kwargs_search for key in check) and not all(
                 key in self.kwargs_search for key in check
             ):
-                raise ValueError(f"If any of {check} are input, they all must be input.")
+                raise ValueError(
+                    f"If any of {check} are input, they all must be input."
+                )
 
         if "min_lon" in self.kwargs_search and "max_lon" in self.kwargs_search:
             min_lon, max_lon = (
@@ -255,9 +266,13 @@ class AXDSCatalog(Catalog):
         self.pglabels: List[Union[str, None]]
         self.pgids: List[Union[int, None]]
         if keys_to_match is not None:
-            self.pglabels, self.pgids = match_key_to_parameter(astype(keys_to_match, list))
+            self.pglabels, self.pgids = match_key_to_parameter(
+                astype(keys_to_match, list)
+            )
         elif standard_names is not None:
-            self.pglabels, self.pgids = match_std_names_to_parameter(astype(standard_names, list))
+            self.pglabels, self.pgids = match_std_names_to_parameter(
+                astype(standard_names, list)
+            )
         else:
             self.pglabels, self.pgids = [None], [None]
 
@@ -395,7 +410,10 @@ class AXDSCatalog(Catalog):
             if self.query_type == "union":  # logical OR
                 combined_results.extend(res["results"])
 
-            elif self.query_type == "intersection" or self.query_type == "intersection_constrained":  # logical AND
+            elif (
+                self.query_type == "intersection"
+                or self.query_type == "intersection_constrained"
+            ):  # logical AND
                 if first_loop:  # initialize
                     combined_results = res["results"]
                     first_loop = False
@@ -497,7 +515,9 @@ class AXDSCatalog(Catalog):
                     "use_units": self.use_units,
                     "binned": self.binned,
                     "bin_interval": self.bin_interval,
-                    "only_pgids": list(self.pgids) if self.query_type == "intersection_constrained" else None,
+                    "only_pgids": list(self.pgids)
+                    if self.query_type == "intersection_constrained"
+                    else None,
                 }
                 plugin = AXDSSensorSource
 

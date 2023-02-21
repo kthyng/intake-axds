@@ -112,10 +112,12 @@ class AXDSSensorSource(base.DataSource):
             binned = True
         self.binned = binned
         self.bin_interval = bin_interval
-        
+
         if self.binned:
             if self.qartod:
-                raise ValueError("QARTOD is not available for binned output. Set QARTOD to False or use raw data.")
+                raise ValueError(
+                    "QARTOD is not available for binned output. Set QARTOD to False or use raw data."
+                )
 
         # need dataset_id to get metadata
         if self.dataset_id is None:
@@ -167,7 +169,7 @@ class AXDSSensorSource(base.DataSource):
         filters = []
 
         if self.metadata["version"] == 1:
-            
+
             # if we should only return the requested variables, use the pgids input for this.
             if self.only_pgids:
                 pgids = self.only_pgids
@@ -205,7 +207,7 @@ class AXDSSensorSource(base.DataSource):
         if "data" not in data_raw:
             self._dataframe = None
             raise ValueError(f"No data found for url {url}.")
-        
+
         # for raw data
         if len(data_raw["data"]["groupedFeeds"]) == 0:
             self._dataframe = None
@@ -221,15 +223,21 @@ class AXDSSensorSource(base.DataSource):
                 metadata_values_name = "avgVals"
             else:
                 metadata_values_name = "values"
-            
-            # for the case where we only return data from certain pgids, skip loop if this 
+
+            # for the case where we only return data from certain pgids, skip loop if this
             # data is not included
             if self.only_pgids is not None:
-                if not any([var["parameterGroupId"] for var in feed["metadata"][metadata_values_name] if var["parameterGroupId"] in self.only_pgids]):
+                if not any(
+                    [
+                        var["parameterGroupId"]
+                        for var in feed["metadata"][metadata_values_name]
+                        if var["parameterGroupId"] in self.only_pgids
+                    ]
+                ):
                     continue
 
             # import pdb; pdb.set_trace()
-            
+
             columns = {}  # all non-index columns in dataframe
             indices = {}  # indices for dataframe
 
@@ -348,10 +356,10 @@ class AXDSSensorSource(base.DataSource):
     @property
     def data_urls(self):
         """Prepare to load in data by getting data_urls.
-        
+
         For V1 sources there will be a data_url per parameterGroupId but not for V2 sources.
         """
-        
+
         if not hasattr(self, "_data_urls"):
 
             # get extended metadata which we need both for reading the data and as metadata
@@ -362,12 +370,17 @@ class AXDSSensorSource(base.DataSource):
             end_time = self.end_time or self.metadata["maxTime"]
 
             filters = self._get_filters()
-            self._data_urls = [make_data_url(filter, start_time, end_time, self.binned, self.bin_interval) for filter in filters]
+            self._data_urls = [
+                make_data_url(
+                    filter, start_time, end_time, self.binned, self.bin_interval
+                )
+                for filter in filters
+            ]
         return self._data_urls
 
     def _load(self):
         """How to load in a specific station once you know it by dataset_id"""
-        
+
         dfs = [self._load_to_dataframe(url) for url in self.data_urls]
 
         df = dfs[0]
