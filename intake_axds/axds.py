@@ -60,7 +60,7 @@ class AXDSSensorSource(base.DataSource):
         end_time : Optional[str], optional
             At what datetime for data to end, by default None. Must be interpretable by pandas ``Timestamp``. If not input, the datetime at which the dataset ends will be used.
         qartod : bool, int, list, optional
-            Whether to return QARTOD agg flags when available, which is only for sensor_stations. Can instead input an int or a list of ints representing the _qa_agg flags for which to return data values. More information about QARTOD testing and flags can be found here: https://cdn.ioos.noaa.gov/media/2020/07/QARTOD-Data-Flags-Manual_version1.2final.pdf. Only used by datatype "sensor_station".
+            Whether to return QARTOD agg flags when available, which is only for sensor_stations. Can instead input an int or a list of ints representing the _qa_agg flags for which to return data values. More information about QARTOD testing and flags can be found here: https://cdn.ioos.noaa.gov/media/2020/07/QARTOD-Data-Flags-Manual_version1.2final.pdf. Only used by datatype "sensor_station". Is not available if `binned==True`.
 
             Examples of ways to use this input are:
 
@@ -108,6 +108,10 @@ class AXDSSensorSource(base.DataSource):
             binned = True
         self.binned = binned
         self.bin_interval = bin_interval
+        
+        if self.binned:
+            if self.qartod:
+                raise ValueError("QARTOD is not available for binned output. Set QARTOD to False or use raw data.")
 
         # need dataset_id to get metadata
         if self.dataset_id is None:
@@ -187,6 +191,12 @@ class AXDSSensorSource(base.DataSource):
 
         # check for presence of any data
         assert isinstance(data_raw, dict)
+        # for binned data
+        if "data" not in data_raw:
+            self._dataframe = None
+            raise ValueError(f"No data found for url {url}.")
+        
+        # for raw data
         if len(data_raw["data"]["groupedFeeds"]) == 0:
             self._dataframe = None
             raise ValueError(f"No data found for url {url}.")
@@ -316,24 +326,27 @@ class AXDSSensorSource(base.DataSource):
 
         return df
 
+    @property
+    def data_urls(self):
+        """Prepare to load in data by getting data_urls."""
+        
+        if not hasattr(self, "_data_urls"):
+
+            # get extended metadata which we need both for reading the data and as metadata
+            result = response_from_url(make_search_docs_url(self.dataset_id))[0]
+            self.metadata.update(load_metadata("sensor_station", result))
+
+            start_time = self.start_time or self.metadata["minTime"]
+            end_time = self.end_time or self.metadata["maxTime"]
+
+            filters = self._get_filters()
+            self._data_urls = [make_data_url(filter, start_time, end_time, self.binned, self.bin_interval) for filter in filters]
+        return self._data_urls
+
     def _load(self):
         """How to load in a specific station once you know it by dataset_id"""
-
-        # get extended metadata which we need both for reading the data and as metadata
-        result = response_from_url(make_search_docs_url(self.dataset_id))[0]
-        self.metadata.update(load_metadata("sensor_station", result))
-
-        start_time = self.start_time or self.metadata["minTime"]
-        end_time = self.end_time or self.metadata["maxTime"]
-
-        filters = self._get_filters()
-
-        dfs = []
-        for filter in filters:
-            self.data_raw_url = make_data_url(
-                filter, start_time, end_time, self.binned, self.bin_interval
-            )
-            dfs.append(self._load_to_dataframe(self.data_raw_url))
+        
+        dfs = [self._load_to_dataframe(url) for url in self.data_urls]
 
         df = dfs[0]
         # this gets different and I think better results than dfs[0].join(dfs[1:], how="outer", sort=True)

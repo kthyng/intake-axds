@@ -94,7 +94,7 @@ class AXDSCatalog(Catalog):
             AND of the results. If the value is ``"union"`` then the results will be
             the union of each resulting dataset. This is equivalent to a logical OR.
         qartod : bool, int, list, optional
-            Whether to return QARTOD agg flags when available, which is only for sensor_stations. Can instead input an int or a list of ints representing the _qa_agg flags for which to return data values. More information about QARTOD testing and flags can be found here: https://cdn.ioos.noaa.gov/media/2020/07/QARTOD-Data-Flags-Manual_version1.2final.pdf. Only used by datatype "sensor_station".
+            Whether to return QARTOD agg flags when available, which is only for sensor_stations. Can instead input an int or a list of ints representing the _qa_agg flags for which to return data values. More information about QARTOD testing and flags can be found here: https://cdn.ioos.noaa.gov/media/2020/07/QARTOD-Data-Flags-Manual_version1.2final.pdf. Only used by datatype "sensor_station". Is not available if `binned==True`.
 
             Examples of ways to use this input are:
 
@@ -146,6 +146,10 @@ class AXDSCatalog(Catalog):
             binned = True
         self.binned = binned
         self.bin_interval = bin_interval
+        
+        if self.binned:
+            if self.qartod:
+                raise ValueError("QARTOD is not available for binned output. Set QARTOD to False or use raw data.")
 
         allowed_datatypes = ("platform2", "sensor_station")
         if datatype not in allowed_datatypes:
@@ -209,11 +213,12 @@ class AXDSCatalog(Catalog):
             if isinstance(self.kwargs_search["search_for"], str):
                 self.kwargs_search["search_for"] = [self.kwargs_search["search_for"]]
 
-        check = ["min_lon", "max_lon", "min_lat", "max_lat"]
-        if any(key in self.kwargs_search for key in check) and not all(
-            key in self.kwargs_search for key in check
-        ):
-            raise ValueError(f"If any of {check} are input, they all must be input.")
+        checks = [["min_lon", "max_lon", "min_lat", "max_lat"], ["min_time", "max_time"]]
+        for check in checks:
+            if any(key in self.kwargs_search for key in check) and not all(
+                key in self.kwargs_search for key in check
+            ):
+                raise ValueError(f"If any of {check} are input, they all must be input.")
 
         if "min_lon" in self.kwargs_search and "max_lon" in self.kwargs_search:
             min_lon, max_lon = (

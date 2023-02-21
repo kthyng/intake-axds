@@ -207,7 +207,19 @@ def load_metadata(datatype: str, results: dict) -> dict:  #: Dict[str, str]
         keys = ["minLongitude", "minLatitude", "maxLongitude", "maxLatitude"]
         metadata.update(dict(zip(keys, p1.bounds)))
 
-        metadata["variables"] = list(results["source"]["meta"]["variables"].keys())
+        # save variable details if they have a standard_name
+        # some platforms have lots of variables that seem irrelevant
+        out = {attrs["attributes"]["standard_name"]: {
+                "variable_name": varname,
+                "units": attrs["attributes"]["units"] if "units" in attrs["attributes"] else None,
+                "unit_id": attrs["attributes"]["unit_id"] if "unit_id" in attrs["attributes"] else None,
+                "long_name": attrs["attributes"]["long_name"],
+                "parameter_id": attrs["attributes"]["parameter_id"] if "parameter_id" in attrs["attributes"] else None,}
+                for varname, attrs in results["source"]["meta"]["variables"].items() if "standard_name" in attrs["attributes"]}
+
+        metadata["variables_details"] = out
+        metadata["variables"] = list(out.keys())
+
 
     elif datatype == "sensor_station":
 
@@ -297,10 +309,13 @@ def make_filter(internal_id: int, parameterGroupId: Optional[int] = None) -> str
         filter to use in station metadata and data access
     """
 
-    filter = f"%7B%22stations%22:%5B%22{internal_id}%22%5D%7D"
+    filter = f"%7B%22stations%22%3A%5B%22{internal_id}%22%5D"
 
     if parameterGroupId is not None:
-        filter += f"%2C%22parameterGroups%22%3A%5B{parameterGroupId}%5D%7D"
+        filter += f"%2C%22parameterGroups%22%3A%5B{parameterGroupId}%5D"
+    
+    # add ending }
+    filter += "%7D"
 
     return filter
 
