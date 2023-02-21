@@ -77,8 +77,10 @@ def test_parameters_and_key(mock_requests):
             "standard_name": "wind_gust_to_direction$",
         },
     }
-    match_to_key = utils.match_key_to_parameter("wind", criteria)
-    assert match_to_key == ["Winds: Gusts"]
+    out = utils.match_key_to_parameter("wind", criteria)
+    match_to_key, pgids = out
+    assert match_to_key == ("Winds: Gusts",)
+    assert pgids == (186,)
 
 
 @mock.patch("requests.get")
@@ -86,7 +88,10 @@ def test_parameters_and_std_names(mock_requests):
     """match std_names"""
 
     mock_requests.return_value = FakeResponseParams()
-    match_to_name = utils.match_std_names_to_parameter(
+    out = utils.match_std_names_to_parameter(
         ["wind_gust_to_direction", "relative_humidity"]
     )
+    match_to_name, pgids = out
+
     assert sorted(match_to_name) == ["Humidity: Relative Humidity", "Winds: Gusts"]
+    assert sorted(pgids) == [22, 186]

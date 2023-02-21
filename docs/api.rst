@@ -15,9 +15,17 @@
 
 .. automodule:: intake_axds.axds_cat
    :members:
-   :inherited-members:
-   :undoc-members:
-   :show-inheritance:
+
+   AXDSCatalog
+
+
+``intake-axds`` sensor source
+*****************************
+
+.. automodule:: intake_axds.axds
+   :members:
+
+   AXDSSensorSource
 
 
 ``intake-axds`` utilities
@@ -27,4 +35,23 @@
    :members:
    :inherited-members:
    :undoc-members:
+   :show-inheritance:
+
+
+
+Inherited from intake
+*********************
+
+``intake-axds`` catalog
+^^^^^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: intake_axds.axds_cat
+   :inherited-members:
+   :show-inheritance:
+
+``intake-axds`` sensor source
+^^^^^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: intake_axds.axds
+   :inherited-members:
    :show-inheritance:

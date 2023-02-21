@@ -29,7 +29,18 @@ class FakeResponse(object):
                                 "institution": "example institution",
                                 "geospatial_bounds": "POLYGON ((-156.25421 20.29439, -160.6308 21.64507, -161.15813 21.90021, -163.60744 23.30368, -163.83879 23.67031, -163.92656 23.83893, -162.37264 55.991, -148.04915 22.40486, -156.25421 20.29439))",
                             },
-                            "variables": {"lon": "lon", "time": "time"},
+                            "variables": {
+                                "lon": {
+                                    "attributes": {
+                                        "standard_name": "longitude",
+                                        "units": "degrees",
+                                        "units_id": "2",  # this is made up
+                                        "long_name": "Longitude",
+                                        "parameter_id": "2",  # made up
+                                    }
+                                }
+                            },
+                            # "variables": {"lon": "lon", "time": "time"},
                         },
                         "files": {
                             "data.csv.gz": {"url": "fake.csv.gz"},
@@ -50,7 +61,18 @@ class FakeResponse(object):
                                 "institution": "example institution",
                                 "geospatial_bounds": "POLYGON ((-156.25421 -20.29439, -160.6308 -21.64507, -161.15813 -21.90021, -163.60744 -23.30368, -163.83879 -23.67031, -163.92656 -23.83893, -162.37264 -55.991, -148.04915 -22.40486, -156.25421 -20.29439))",
                             },
-                            "variables": {"lon": "lon", "time": "time"},
+                            "variables": {
+                                "lon": {
+                                    "attributes": {
+                                        "standard_name": "longitude",
+                                        "units": "degrees",
+                                        "units_id": "2",  # this is made up
+                                        "long_name": "Longitude",
+                                        "parameter_id": "2",  # made up
+                                    }
+                                }
+                            },
+                            # "variables": {"lon": "lon", "time": "time"},
                         },
                         "files": {
                             "data.csv.gz": {"url": "fake.csv.gz"},

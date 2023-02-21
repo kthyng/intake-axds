@@ -17,17 +17,51 @@ from .utils import (
 
 
 class AXDSSensorSource(base.DataSource):
-    """
-    sensor_station only
+    """Intake Source for AXDS sensor
 
     Parameters
     ----------
-    dataset_id: str
-    variables: list
+    internal_id : Optional[int], optional
+        Internal station id for Axiom, by default None. Not the UUID or dataset_id. Need to input internal_id or dataset_id. If both are input, be sure they are for the same station.
+    dataset_id : Optional[str], optional
+        The UUID for the station, by default None. Not the internal_id. Need to input internal_id or dataset_id. If both are input, be sure they are for the same station.
+    start_time : Optional[str], optional
+        At what datetime for data to start, by default None. Must be interpretable by pandas ``Timestamp``. If not input, the datetime at which the dataset starts will be used.
+    end_time : Optional[str], optional
+        At what datetime for data to end, by default None. Must be interpretable by pandas ``Timestamp``. If not input, the datetime at which the dataset ends will be used.
+    qartod : bool, int, list, optional
+        Whether to return QARTOD agg flags when available, which is only for sensor_stations. Can instead input an int or a list of ints representing the _qa_agg flags for which to return data values. More information about QARTOD testing and flags can be found here: https://cdn.ioos.noaa.gov/media/2020/07/QARTOD-Data-Flags-Manual_version1.2final.pdf. Only used by datatype "sensor_station". Is not available if `binned==True`.
 
-    Returns
-    -------
-    Dataframe
+        Examples of ways to use this input are:
+
+        * ``qartod=True``: Return aggregate QARTOD flags as a column for each data variable.
+        * ``qartod=False``: Do not return any QARTOD flag columns.
+        * ``qartod=1``: nan any data values for which the aggregated QARTOD flags are not equal to 1.
+        * ``qartod=[1,3]``: nan any data values for which the aggregated QARTOD flags are not equal to 1 or 3.
+
+        Flags are:
+
+        * 1: Pass
+        * 2: Not Evaluated
+        * 3: Suspect
+        * 4: Fail
+        * 9: Missing Data
+
+    use_units : bool, optional
+        If True include units in column names. Syntax is "standard_name [units]". If False, no units. Then syntax for column names is "standard_name". This is currently specific to sensor_station only. Only used by datatype "sensor_station".
+    metadata : dict, optional
+        Metadata for catalog.
+    binned : bool, optional
+        True for binned data, False for raw, by default False. Only used by datatype "sensor_station".
+    bin_interval : Optional[str], optional
+        If ``binned=True``, input the binning interval to return. Options are hourly, daily, weekly, monthly, yearly. If bin_interval is input, binned is set to True. Only used by datatype "sensor_station".
+    only_pgids : list, optional
+        If input, only return data associated with these parameterGroupIds. This is separate from parameterGroupLabels and parameterGroupIds that might be present in the metadata.
+
+    Raises
+    ------
+    ValueError
+        _description_
     """
 
     name = "axds-sensor"
@@ -46,51 +80,8 @@ class AXDSSensorSource(base.DataSource):
         metadata=None,
         binned: bool = False,
         bin_interval: Optional[str] = None,
+        only_pgids: Optional[List[int]] = None,
     ):
-        """_summary_
-
-        Parameters
-        ----------
-        internal_id : Optional[int], optional
-            Internal station id for Axiom, by default None. Not the UUID or dataset_id. Need to input internal_id or dataset_id. If both are input, be sure they are for the same station.
-        dataset_id : Optional[str], optional
-            The UUID for the station, by default None. Not the internal_id. Need to input internal_id or dataset_id. If both are input, be sure they are for the same station.
-        start_time : Optional[str], optional
-            At what datetime for data to start, by default None. Must be interpretable by pandas ``Timestamp``. If not input, the datetime at which the dataset starts will be used.
-        end_time : Optional[str], optional
-            At what datetime for data to end, by default None. Must be interpretable by pandas ``Timestamp``. If not input, the datetime at which the dataset ends will be used.
-        qartod : bool, int, list, optional
-            Whether to return QARTOD agg flags when available, which is only for sensor_stations. Can instead input an int or a list of ints representing the _qa_agg flags for which to return data values. More information about QARTOD testing and flags can be found here: https://cdn.ioos.noaa.gov/media/2020/07/QARTOD-Data-Flags-Manual_version1.2final.pdf. Only used by datatype "sensor_station".
-
-            Examples of ways to use this input are:
-
-            * ``qartod=True``: Return aggregate QARTOD flags as a column for each data variable.
-            * ``qartod=False``: Do not return any QARTOD flag columns.
-            * ``qartod=1``: nan any data values for which the aggregated QARTOD flags are not equal to 1.
-            * ``qartod=[1,3]``: nan any data values for which the aggregated QARTOD flags are not equal to 1 or 3.
-
-            Flags are:
-
-            * 1: Pass
-            * 2: Not Evaluated
-            * 3: Suspect
-            * 4: Fail
-            * 9: Missing Data
-
-        use_units : bool, optional
-            If True include units in column names. Syntax is "standard_name [units]". If False, no units. Then syntax for column names is "standard_name". This is currently specific to sensor_station only. Only used by datatype "sensor_station".
-        metadata : dict, optional
-            Metadata for catalog.
-        binned : bool, optional
-            True for binned data, False for raw, by default False. Only used by datatype "sensor_station".
-        bin_interval : Optional[str], optional
-            If ``binned=True``, input the binning interval to return. Options are hourly, daily, weekly, monthly, yearly. If bin_interval is input, binned is set to True. Only used by datatype "sensor_station".
-
-        Raises
-        ------
-        ValueError
-            _description_
-        """
 
         if internal_id is None and dataset_id is None:
             raise ValueError(
@@ -103,11 +94,18 @@ class AXDSSensorSource(base.DataSource):
         self.internal_id = internal_id
         self.qartod = qartod
         self.use_units = use_units
+        self.only_pgids = only_pgids
 
         if bin_interval is not None:
             binned = True
         self.binned = binned
         self.bin_interval = bin_interval
+
+        if self.binned:
+            if self.qartod:
+                raise ValueError(
+                    "QARTOD is not available for binned output. Set QARTOD to False or use raw data."
+                )
 
         # need dataset_id to get metadata
         if self.dataset_id is None:
@@ -139,12 +137,13 @@ class AXDSSensorSource(base.DataSource):
                 "use_units": self.use_units,
                 "binned": self.binned,
                 "bin_interval": bin_interval,
+                "only_pgids": self.only_pgids,
             }
         )
 
         super(AXDSSensorSource, self).__init__(metadata=metadata)
 
-    def _get_filters(self):
+    def get_filters(self):
         """Return appropriate filter for stationid.
 
         What filter form to use depends on if V1 or V2.
@@ -158,10 +157,15 @@ class AXDSSensorSource(base.DataSource):
         filters = []
 
         if self.metadata["version"] == 1:
-            pgids = [
-                self.metadata["variables_details"][var]["parameterGroupId"]
-                for var in self.metadata["variables_details"]
-            ]
+
+            # if we should only return the requested variables, use the pgids input for this.
+            if self.only_pgids:
+                pgids = self.only_pgids
+            else:
+                pgids = [
+                    self.metadata["variables_details"][var]["parameterGroupId"]
+                    for var in self.metadata["variables_details"]
+                ]
             for pgid in list(set(pgids)):
                 filters.append(make_filter(self.internal_id, pgid))
         else:
@@ -187,6 +191,12 @@ class AXDSSensorSource(base.DataSource):
 
         # check for presence of any data
         assert isinstance(data_raw, dict)
+        # for binned data
+        if "data" not in data_raw:
+            self._dataframe = None
+            raise ValueError(f"No data found for url {url}.")
+
+        # for raw data
         if len(data_raw["data"]["groupedFeeds"]) == 0:
             self._dataframe = None
             raise ValueError(f"No data found for url {url}.")
@@ -195,6 +205,27 @@ class AXDSSensorSource(base.DataSource):
         # link to other metadata as needed
         dfs = []
         for feed in data_raw["data"]["groupedFeeds"]:
+
+            # different names for data sets depending on if binned or not
+            if self.binned:
+                metadata_values_name = "avgVals"
+            else:
+                metadata_values_name = "values"
+
+            # for the case where we only return data from certain pgids, skip loop if this
+            # data is not included
+            if self.only_pgids is not None:
+                if not any(
+                    [
+                        var["parameterGroupId"]
+                        for var in feed["metadata"][metadata_values_name]
+                        if var["parameterGroupId"] in self.only_pgids
+                    ]
+                ):
+                    continue
+
+            # import pdb; pdb.set_trace()
+
             columns = {}  # all non-index columns in dataframe
             indices = {}  # indices for dataframe
 
@@ -224,12 +255,6 @@ class AXDSSensorSource(base.DataSource):
                 raise ValueError(
                     f"lon/lat should be None for sensors but are {lon}, {lat}."
                 )
-
-            # different names for data sets depending on if binned or not
-            if self.binned:
-                metadata_values_name = "avgVals"
-            else:
-                metadata_values_name = "values"
 
             # add data columns
             data_cols = {
@@ -316,24 +341,35 @@ class AXDSSensorSource(base.DataSource):
 
         return df
 
+    @property
+    def data_urls(self):
+        """Prepare to load in data by getting data_urls.
+
+        For V1 sources there will be a data_url per parameterGroupId but not for V2 sources.
+        """
+
+        if not hasattr(self, "_data_urls"):
+
+            # get extended metadata which we need both for reading the data and as metadata
+            result = response_from_url(make_search_docs_url(self.dataset_id))[0]
+            self.metadata.update(load_metadata("sensor_station", result))
+
+            start_time = self.start_time or self.metadata["minTime"]
+            end_time = self.end_time or self.metadata["maxTime"]
+
+            filters = self.get_filters()
+            self._data_urls = [
+                make_data_url(
+                    filter, start_time, end_time, self.binned, self.bin_interval
+                )
+                for filter in filters
+            ]
+        return self._data_urls
+
     def _load(self):
         """How to load in a specific station once you know it by dataset_id"""
 
-        # get extended metadata which we need both for reading the data and as metadata
-        result = response_from_url(make_search_docs_url(self.dataset_id))[0]
-        self.metadata.update(load_metadata("sensor_station", result))
-
-        start_time = self.start_time or self.metadata["minTime"]
-        end_time = self.end_time or self.metadata["maxTime"]
-
-        filters = self._get_filters()
-
-        dfs = []
-        for filter in filters:
-            self.data_raw_url = make_data_url(
-                filter, start_time, end_time, self.binned, self.bin_interval
-            )
-            dfs.append(self._load_to_dataframe(self.data_raw_url))
+        dfs = [self._load_to_dataframe(url) for url in self.data_urls]
 
         df = dfs[0]
         # this gets different and I think better results than dfs[0].join(dfs[1:], how="outer", sort=True)
