@@ -28,14 +28,89 @@ class AXDSCatalog(Catalog):
     """
     Makes data sources out of all datasets for a given AXDS data type.
 
-    Have this cover all data types for now, then split out.
-
     Attributes
     ----------
     pglabels : list[str]
         If ``keys_to_match`` or ``standard_names`` is input to search on, they are converted to parameterGroupLabels and saved to the catalog metadata.
     pgids : list[int]
         If ``keys_to_match`` or ``standard_names`` is input to search on, they are converted to parameterGroupIds and saved to the catalog metadata. In the case that ``query_type=="intersection_constrained"`` and ``datatype=="platform2"``, the pgids are passed to the sensor source so that only data from variables corresponding to those pgids are returned.
+
+    Parameters
+    ----------
+    datatype : str
+        Axiom data type. Currently "platform2" or "sensor_station" but eventually also "module". Platforms and sensors are returned as dataframe containers.
+    keys_to_match : str, list, optional
+        Name of keys to match with system-available variable parameterNames using criteria. To filter search by variables, either input keys_to_match and a vocabulary or input standard_names. Results from multiple values will be combined according to ``query_type``.
+    standard_names : str, list, optional
+        Standard names to select from Axiom search parameterNames. If more than one is input, the search is for a logical OR of datasets containing the standard_names. To filter search by variables, either input keys_to_match and a vocabulary or input standard_names. Results from multiple values will be combined according to ``query_type``.
+    bbox : tuple of 4 floats, optional
+        For explicit geographic search queries, pass a tuple of four floats in the `bbox` argument. The bounding box parameters are `(min_lon, min_lat, max_lon, max_lat)`.
+    start_time : str, optional
+        For explicit search queries for datasets that contain data after `start_time`. Must include end_time if include start_time.
+    end_time : str, optional
+        For explicit search queries for datasets that contain data before `end_time`. Must include start_time if include end_time.
+    search_for : str, list of strings, optional
+        For explicit search queries for datasets that any contain of the terms specified in this keyword argument. Results from multiple values will be combined according to ``query_type``.
+    kwargs_search : dict, optional
+        Keyword arguments to input to search on the server before making the catalog. Options are:
+        
+        * to search by bounding box: include all of min_lon, max_lon, min_lat, max_lat: (int, float). Longitudes must be between -180 to +180.
+        * to search within a datetime range: include both of min_time, max_time: interpretable datetime string, e.g., "2021-1-1"
+        * to search using a textual keyword: include `search_for` as a string or list of strings. Results from multiple values will be combined according to ``query_type``.
+        
+    query_type : str, default "union"
+        Specifies how the catalog should apply the query parameters. Choices are:
+
+        * ``"union"``: the results will be the union of each resulting dataset. This is equivalent to a logical OR.
+        * ``"intersection"``: the set of results will be the intersection of each individual query made to the server. This is equivalent to a logical AND of the results.
+        * ``"intersection_constrained"``: the set of results will be the intersection of queries but also only the variables requested (using either ``keys_to_match`` or ``standard_names``) will be returned in the DataFrame, instead of all available variables. This only applies to ``datatype=="sensor_station"``.
+
+    qartod : bool, int, list, optional
+        Whether to return QARTOD agg flags when available, which is only for sensor_stations. Can instead input an int or a list of ints representing the _qa_agg flags for which to return data values. More information about QARTOD testing and flags can be found here: https://cdn.ioos.noaa.gov/media/2020/07/QARTOD-Data-Flags-Manual_version1.2final.pdf. Only used by datatype "sensor_station". Is not available if ``binned==True``.
+
+        Examples of ways to use this input are:
+
+        * ``qartod=True``: Return aggregate QARTOD flags as a column for each data variable.
+        * ``qartod=False``: Do not return any QARTOD flag columns.
+        * ``qartod=1``: nan any data values for which the aggregated QARTOD flags are not equal to 1.
+        * ``qartod=[1,3]``: nan any data values for which the aggregated QARTOD flags are not equal to 1 or 3.
+
+        Flags are:
+
+        * 1: Pass
+        * 2: Not Evaluated
+        * 3: Suspect
+        * 4: Fail
+        * 9: Missing Data
+
+    use_units : bool, optional
+        If True include units in column names. Syntax is "standard_name [units]". If False, no units. Then syntax for column names is "standard_name". This is currently specific to sensor_station only. Only used by datatype "sensor_station".
+    binned : bool, optional
+        True for binned data, False for raw, by default False. Only used by datatype "sensor_station".
+    bin_interval : Optional[str], optional
+        If ``binned=True``, input the binning interval to return. Options are hourly, daily, weekly, monthly, yearly. If bin_interval is input, binned is set to True. Only used by datatype "sensor_station".
+    page_size : int, optional
+        Number of results. Fewer is faster. Note that default is 10. Note that if you want to make sure you get all available datasets, you should input a large number like 50000.
+    verbose : bool, optional
+        Set to True for helpful information.
+    ttl : int, optional
+        Time to live for catalog (in seconds). How long before force-reloading catalog. Set to None to not do this.
+    name : str, optional
+        Name for catalog.
+    description : str, optional
+        Description for catalog.
+    metadata : dict, optional
+        Metadata for catalog.
+    kwargs:
+        Other input arguments are passed to the intake Catalog class. They can includegetenv, getshell, persist_mode, storage_options, and user_parameters, in addition to some that are surfaced directly in this class.
+    
+    Notes
+    -----
+    
+    only datatype sensor_station uses the following parameters: qartod, use_units, binned, bin_interval
+
+    datatype of sensor_station skips webcam data.
+
     """
 
     name = "axds_cat"
@@ -66,79 +141,6 @@ class AXDSCatalog(Catalog):
         ttl: Optional[int] = None,
         **kwargs,
     ):
-        """Initialize an Axiom Catalog.
-
-        only datatype sensor_station uses the following parameters: qartod, use_units, binned, bin_interval
-
-        datatype of sensor_station skips webcam data.
-
-        Parameters
-        ----------
-        datatype : str
-            Axiom data type. Currently "platform2" or "sensor_station" but eventually also "module". Platforms and sensors are returned as dataframe containers.
-        keys_to_match : str, list, optional
-            Name of keys to match with system-available variable parameterNames using criteria. To filter search by variables, either input keys_to_match and a vocabulary or input standard_names. Results from multiple values will be combined according to ``query_type``.
-        standard_names : str, list, optional
-            Standard names to select from Axiom search parameterNames. If more than one is input, the search is for a logical OR of datasets containing the standard_names. To filter search by variables, either input keys_to_match and a vocabulary or input standard_names. Results from multiple values will be combined according to ``query_type``.
-        bbox : tuple of 4 floats, optional
-            For explicit geographic search queries, pass a tuple of four floats in the `bbox` argument. The bounding box parameters are `(min_lon, min_lat, max_lon, max_lat)`.
-        start_time : str, optional
-            For explicit search queries for datasets that contain data after `start_time`. Must include end_time if include start_time.
-        end_time : str, optional
-            For explicit search queries for datasets that contain data before `end_time`. Must include start_time if include end_time.
-        search_for : str, list of strings, optional
-            For explicit search queries for datasets that any contain of the terms specified in this keyword argument. Results from multiple values will be combined according to ``query_type``.
-        kwargs_search : dict, optional
-            Keyword arguments to input to search on the server before making the catalog. Options are:
-            * to search by bounding box: include all of min_lon, max_lon, min_lat, max_lat: (int, float). Longitudes must be between -180 to +180.
-            * to search within a datetime range: include both of min_time, max_time: interpretable datetime string, e.g., "2021-1-1"
-            * to search using a textual keyword: include `search_for` as a string or list of strings. Results from multiple values will be combined according to ``query_type``.
-        query_type : str, default "union"
-            Specifies how the catalog should apply the query parameters. Choices are:
-
-            * ``"union"``: the results will be the union of each resulting dataset. This is equivalent to a logical OR.
-            * ``"intersection"``: the set of results will be the intersection of each individual query made to the server. This is equivalent to a logical AND of the results.
-            * ``"intersection_constrained"``: the set of results will be the intersection of queries but also only the variables requested (using either ``keys_to_match`` or ``standard_names``) will be returned in the DataFrame, instead of all available variables. This only applies to ``datatype=="sensor_station"``.
-
-        qartod : bool, int, list, optional
-            Whether to return QARTOD agg flags when available, which is only for sensor_stations. Can instead input an int or a list of ints representing the _qa_agg flags for which to return data values. More information about QARTOD testing and flags can be found here: https://cdn.ioos.noaa.gov/media/2020/07/QARTOD-Data-Flags-Manual_version1.2final.pdf. Only used by datatype "sensor_station". Is not available if `binned==True`.
-
-            Examples of ways to use this input are:
-
-            * ``qartod=True``: Return aggregate QARTOD flags as a column for each data variable.
-            * ``qartod=False``: Do not return any QARTOD flag columns.
-            * ``qartod=1``: nan any data values for which the aggregated QARTOD flags are not equal to 1.
-            * ``qartod=[1,3]``: nan any data values for which the aggregated QARTOD flags are not equal to 1 or 3.
-
-            Flags are:
-
-            * 1: Pass
-            * 2: Not Evaluated
-            * 3: Suspect
-            * 4: Fail
-            * 9: Missing Data
-
-        use_units : bool, optional
-            If True include units in column names. Syntax is "standard_name [units]". If False, no units. Then syntax for column names is "standard_name". This is currently specific to sensor_station only. Only used by datatype "sensor_station".
-        binned : bool, optional
-            True for binned data, False for raw, by default False. Only used by datatype "sensor_station".
-        bin_interval : Optional[str], optional
-            If ``binned=True``, input the binning interval to return. Options are hourly, daily, weekly, monthly, yearly. If bin_interval is input, binned is set to True. Only used by datatype "sensor_station".
-        page_size : int, optional
-            Number of results. Fewer is faster. Note that default is 10. Note that if you want to make sure you get all available datasets, you should input a large number like 50000.
-        verbose : bool, optional
-            Set to True for helpful information.
-        ttl : int, optional
-            Time to live for catalog (in seconds). How long before force-reloading catalog. Set to None to not do this.
-        name : str, optional
-            Name for catalog.
-        description : str, optional
-            Description for catalog.
-        metadata : dict, optional
-            Metadata for catalog.
-        kwargs:
-            Other input arguments are passed to the intake Catalog class. They can includegetenv, getshell, persist_mode, storage_options, and user_parameters, in addition to some that are surfaced directly in this class.
-        """
 
         self.datatype = datatype
         self.kwargs_search = kwargs_search

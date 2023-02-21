@@ -17,17 +17,51 @@ from .utils import (
 
 
 class AXDSSensorSource(base.DataSource):
-    """
-    sensor_station only
+    """Intake Source for AXDS sensor
 
     Parameters
     ----------
-    dataset_id: str
-    variables: list
+    internal_id : Optional[int], optional
+        Internal station id for Axiom, by default None. Not the UUID or dataset_id. Need to input internal_id or dataset_id. If both are input, be sure they are for the same station.
+    dataset_id : Optional[str], optional
+        The UUID for the station, by default None. Not the internal_id. Need to input internal_id or dataset_id. If both are input, be sure they are for the same station.
+    start_time : Optional[str], optional
+        At what datetime for data to start, by default None. Must be interpretable by pandas ``Timestamp``. If not input, the datetime at which the dataset starts will be used.
+    end_time : Optional[str], optional
+        At what datetime for data to end, by default None. Must be interpretable by pandas ``Timestamp``. If not input, the datetime at which the dataset ends will be used.
+    qartod : bool, int, list, optional
+        Whether to return QARTOD agg flags when available, which is only for sensor_stations. Can instead input an int or a list of ints representing the _qa_agg flags for which to return data values. More information about QARTOD testing and flags can be found here: https://cdn.ioos.noaa.gov/media/2020/07/QARTOD-Data-Flags-Manual_version1.2final.pdf. Only used by datatype "sensor_station". Is not available if `binned==True`.
 
-    Returns
-    -------
-    Dataframe
+        Examples of ways to use this input are:
+
+        * ``qartod=True``: Return aggregate QARTOD flags as a column for each data variable.
+        * ``qartod=False``: Do not return any QARTOD flag columns.
+        * ``qartod=1``: nan any data values for which the aggregated QARTOD flags are not equal to 1.
+        * ``qartod=[1,3]``: nan any data values for which the aggregated QARTOD flags are not equal to 1 or 3.
+
+        Flags are:
+
+        * 1: Pass
+        * 2: Not Evaluated
+        * 3: Suspect
+        * 4: Fail
+        * 9: Missing Data
+
+    use_units : bool, optional
+        If True include units in column names. Syntax is "standard_name [units]". If False, no units. Then syntax for column names is "standard_name". This is currently specific to sensor_station only. Only used by datatype "sensor_station".
+    metadata : dict, optional
+        Metadata for catalog.
+    binned : bool, optional
+        True for binned data, False for raw, by default False. Only used by datatype "sensor_station".
+    bin_interval : Optional[str], optional
+        If ``binned=True``, input the binning interval to return. Options are hourly, daily, weekly, monthly, yearly. If bin_interval is input, binned is set to True. Only used by datatype "sensor_station".
+    only_pgids : list, optional
+        If input, only return data associated with these parameterGroupIds. This is separate from parameterGroupLabels and parameterGroupIds that might be present in the metadata.
+
+    Raises
+    ------
+    ValueError
+        _description_
     """
 
     name = "axds-sensor"
@@ -48,52 +82,6 @@ class AXDSSensorSource(base.DataSource):
         bin_interval: Optional[str] = None,
         only_pgids: Optional[List[int]] = None,
     ):
-        """_summary_
-
-        Parameters
-        ----------
-        internal_id : Optional[int], optional
-            Internal station id for Axiom, by default None. Not the UUID or dataset_id. Need to input internal_id or dataset_id. If both are input, be sure they are for the same station.
-        dataset_id : Optional[str], optional
-            The UUID for the station, by default None. Not the internal_id. Need to input internal_id or dataset_id. If both are input, be sure they are for the same station.
-        start_time : Optional[str], optional
-            At what datetime for data to start, by default None. Must be interpretable by pandas ``Timestamp``. If not input, the datetime at which the dataset starts will be used.
-        end_time : Optional[str], optional
-            At what datetime for data to end, by default None. Must be interpretable by pandas ``Timestamp``. If not input, the datetime at which the dataset ends will be used.
-        qartod : bool, int, list, optional
-            Whether to return QARTOD agg flags when available, which is only for sensor_stations. Can instead input an int or a list of ints representing the _qa_agg flags for which to return data values. More information about QARTOD testing and flags can be found here: https://cdn.ioos.noaa.gov/media/2020/07/QARTOD-Data-Flags-Manual_version1.2final.pdf. Only used by datatype "sensor_station". Is not available if `binned==True`.
-
-            Examples of ways to use this input are:
-
-            * ``qartod=True``: Return aggregate QARTOD flags as a column for each data variable.
-            * ``qartod=False``: Do not return any QARTOD flag columns.
-            * ``qartod=1``: nan any data values for which the aggregated QARTOD flags are not equal to 1.
-            * ``qartod=[1,3]``: nan any data values for which the aggregated QARTOD flags are not equal to 1 or 3.
-
-            Flags are:
-
-            * 1: Pass
-            * 2: Not Evaluated
-            * 3: Suspect
-            * 4: Fail
-            * 9: Missing Data
-
-        use_units : bool, optional
-            If True include units in column names. Syntax is "standard_name [units]". If False, no units. Then syntax for column names is "standard_name". This is currently specific to sensor_station only. Only used by datatype "sensor_station".
-        metadata : dict, optional
-            Metadata for catalog.
-        binned : bool, optional
-            True for binned data, False for raw, by default False. Only used by datatype "sensor_station".
-        bin_interval : Optional[str], optional
-            If ``binned=True``, input the binning interval to return. Options are hourly, daily, weekly, monthly, yearly. If bin_interval is input, binned is set to True. Only used by datatype "sensor_station".
-        only_pgids : list, optional
-            If input, only return data associated with these parameterGroupIds. This is separate from parameterGroupLabels and parameterGroupIds that might be present in the metadata.
-
-        Raises
-        ------
-        ValueError
-            _description_
-        """
 
         if internal_id is None and dataset_id is None:
             raise ValueError(
@@ -155,7 +143,7 @@ class AXDSSensorSource(base.DataSource):
 
         super(AXDSSensorSource, self).__init__(metadata=metadata)
 
-    def _get_filters(self):
+    def get_filters(self):
         """Return appropriate filter for stationid.
 
         What filter form to use depends on if V1 or V2.
@@ -369,7 +357,7 @@ class AXDSSensorSource(base.DataSource):
             start_time = self.start_time or self.metadata["minTime"]
             end_time = self.end_time or self.metadata["maxTime"]
 
-            filters = self._get_filters()
+            filters = self.get_filters()
             self._data_urls = [
                 make_data_url(
                     filter, start_time, end_time, self.binned, self.bin_interval

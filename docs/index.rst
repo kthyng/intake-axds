@@ -11,9 +11,10 @@ Installation
 
 To install from conda-forge:
 
-  >>> conda install -c intake-axds
+  >>> conda install -c conda-forge intake-axds
 
 To install from PyPI:
+
   >>> pip install intake-axds
 
 .. toctree::
