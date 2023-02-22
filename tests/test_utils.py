@@ -32,6 +32,31 @@ class FakeResponseParams(object):
                     "idParameterType": 130,
                     "parameterName": "wind_gust_to_direction",
                 },
+                {
+                    "id": 41,
+                    "label": "Water Temperature",
+                    "urn": "http://mmisw.org/ont/cf/parameter/sea_water_temperature",
+                    "sanityMin": 20,
+                    "sanityMax": 135,
+                    "idSanityUnit": 9,
+                    "idParameterGroup": 7,
+                    "idParameterType": 91,
+                    "parameterName": "sea_water_temperature"
+                },
+                {
+                    "id": 50,
+                    "label": "Salinity",
+                    "urn": "http://mmisw.org/ont/cf/parameter/sea_water_practical_salinity",
+                    "sanityMin": 0,
+                    "sanityMax": 50,
+                    "stageConfigJson": {
+                    "palette": "haline"
+                    },
+                    "idSanityUnit": 4,
+                    "idParameterGroup": 14,
+                    "idParameterType": 94,
+                    "parameterName": "sea_water_practical_salinity"
+                },
             ],
             "parameterGroups": [
                 {
@@ -47,6 +72,20 @@ class FakeResponseParams(object):
                     "included": True,
                     "legacyId": "RELATIVE_HUMIDITY",
                     "shortLabel": "Humidity",
+                },
+                {
+                    "id": 7,
+                    "label": "Temperature: Water Temperature",
+                    "included": True,
+                    "legacyId": "WATER_TEMPERATURE",
+                    "shortLabel": "Water Temp"
+                },
+                {
+                    "id": 14,
+                    "label": "Salinity",
+                    "included": True,
+                    "legacyId": "SALINITY",
+                    "shortLabel": None
                 },
             ],
         }
@@ -133,7 +172,6 @@ def test_load_metadata():
                          "datumConversions": [],
                          "version": 2,
                          },
-                # "source": {"meta": {"attributes": {"institution": "institution"}}},
                }
     metadata = utils.load_metadata(datatype, results)
     test_results = {'datasetID': 'uuid', 'title': 'label', 'summary': 'desc', 'type': 'type', 'minTime': '2000-1-1', 'maxTime': '2000-1-2', 'minLongitude': -123.711083, 'minLatitude': 38.914556, 'maxLongitude': -123.711083, 'maxLatitude': 38.914556, 'internal_id': 106793, 'variables_details': {'datasetVariableId': {'parameterGroupLabel': 'label', 'parameterGroupId': 'parameterGroupId', 'datasetVariableId': 'datasetVariableId', 'parameterId': 'parameterId', 'label': 'label', 'deviceId': 'deviceId'}}, 'variables': ['datasetVariableId'], 'metadata_url': 'https://sensors.axds.co/api/metadata/filter/custom?filter=%7B%22stations%22:%5B%22106793%22%5D%7D', 'version': 2}
