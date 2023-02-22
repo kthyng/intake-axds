@@ -13,6 +13,7 @@ from shapely import wkt
 
 search_headers = {"Accept": "application/json"}
 baseurl = "https://sensors.axds.co/api"
+contexturl = "http://oikos.axds.co/rest/context"
 
 
 def _get_version() -> str:
@@ -26,41 +27,6 @@ def _get_version() -> str:
     return __version__
 
 
-def return_parameter_options() -> dict:
-    """Find parameters for Axiom assets.
-
-    Returns
-    -------
-    List
-        Contains the parameter information for Axiom assets.
-
-    Examples
-    --------
-    >>> return_parameter_options()
-    [{'id': 4,
-    'label': 'Relative Humidity',
-    'urn': 'http://mmisw.org/ont/cf/parameter/relative_humidity',
-    'ratio': False,
-    'sanityMin': 0.0,
-    'sanityMax': 110.0,
-    'parameterGroupDefault': True,
-    'configJson': None,
-    'stageConfigJson': None,
-    'idSanityUnit': 1,
-    'idParameterGroup': 22,
-    'idParameterType': 101,
-    'parameterName': 'relative_humidity'},
-    ...
-    """
-
-    resp = requests.get("http://oikos.axds.co/rest/context")
-    # resp.raise_for_status()
-    output = resp.json()
-    # params = data["parameters"]
-
-    return output
-
-
 def available_names() -> list:
     """Return available parameterNames for variables.
 
@@ -70,7 +36,8 @@ def available_names() -> list:
         parametersNames, which are a superset of standard_names.
     """
 
-    resp = return_parameter_options()
+    resp = response_from_url(contexturl)
+    assert isinstance(resp, dict)  # for mypy
     params = resp["parameters"]
 
     # find parameterName options for AXDS. These are a superset of standard_names
@@ -100,7 +67,8 @@ def match_key_to_parameter(
         Parameter Group values that match key, according to the custom criteria.
     """
 
-    resp = return_parameter_options()
+    resp = response_from_url(contexturl)
+    assert isinstance(resp, dict)  # for mypy
     params = resp["parameters"]
 
     # find parameterName options for AXDS. These are a superset of standard_names
@@ -142,7 +110,8 @@ def match_std_names_to_parameter(standard_names: list) -> list:
         Parameter Group values that match standard_names.
     """
 
-    resp = return_parameter_options()
+    resp = response_from_url(contexturl)
+    assert isinstance(resp, dict)  # for mypy
     params = resp["parameters"]
 
     names = [i["parameterName"] for i in params]
@@ -186,7 +155,6 @@ def load_metadata(datatype: str, results: dict) -> dict:  #: Dict[str, str]
     dict
         Metadata to store with catalog entry.
     """
-
     # matching names in intake-erddap
     keys = ["datasetID", "title", "summary", "type", "minTime", "maxTime"]
     # names of keys in Axiom system.

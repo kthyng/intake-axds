@@ -107,23 +107,26 @@ class AXDSSensorSource(base.DataSource):
                     "QARTOD is not available for binned output. Set QARTOD to False or use raw data."
                 )
 
+        metadata = metadata or {}
+
         # need dataset_id to get metadata
         if self.dataset_id is None:
             assert self.internal_id is not None
             res = response_from_url(make_metadata_url(make_filter(self.internal_id)))
             assert isinstance(res, dict)
             self.dataset_id = res["data"]["stations"][0]["uuid"]
+            metadata["version"] = res["data"]["stations"][0]["version"]
 
         # need internal_id to get data
         elif self.internal_id is None:
             assert self.dataset_id is not None
-            self.internal_id = response_from_url(make_search_docs_url(self.dataset_id))[
-                0
-            ]["id"]
+            res = response_from_url(make_search_docs_url(self.dataset_id))[0]
+            assert isinstance(res, dict)  # for mypy
+            self.internal_id = res["id"]
+            metadata["version"] = res["data"]["version"]
 
         self._dataframe = None
 
-        metadata = metadata or {}
         metadata["dataset_id"] = self.dataset_id
 
         # this is what shows in the source if you print it
@@ -155,6 +158,10 @@ class AXDSSensorSource(base.DataSource):
         """
 
         filters = []
+
+        # if "version" not in self.metadata:
+        #     res = response_from_url(make_search_docs_url(self.dataset_id))[0]
+        #     self.metadata["version"] = res["data"]["version"]
 
         if self.metadata["version"] == 1:
 
