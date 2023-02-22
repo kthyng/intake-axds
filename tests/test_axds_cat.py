@@ -489,6 +489,7 @@ def test_no_results(mock_requests):
 
 @mock.patch("requests.get")
 def test_not_a_standard_name(mock_requests):
+    mock_requests.side_effect = [FakeResponseParams()]
     with pytest.raises(ValueError):
         AXDSCatalog(datatype="sensor_station", standard_names="not_a_standard_name")
 
