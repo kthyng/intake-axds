@@ -2,12 +2,12 @@
 from unittest import mock
 
 import cf_pandas
+import intake
 import pytest
 
 from test_utils import FakeResponseParams
 
 from intake_axds.axds_cat import AXDSCatalog
-import intake
 
 
 # call for sea_water_temperature
@@ -60,26 +60,38 @@ class FakeResponse(object):
                                     },
                                 },
                             },
-                            },
-                            # "variables": {"lon": "lon", "time": "time"},
+                        },
+                        # "variables": {"lon": "lon", "time": "time"},
                         "files": {
                             "data.csv.gz": {"url": "fake.csv.gz"},
                             "data.viz.parquet": {"url": "fake.parquet"},
                         },
                     },
-                    "data": {"location": {"coordinates": [-123.711083, 38.914556, 0.0]},
-                            "id": 106793,
-                            "figures": [{"label": "label",
-                                        "parameterGroupId": "parameterGroupId",
-                                        "plots": [{"subPlots": [{"datasetVariableId": "datasetVariableId",
-                                                                "parameterId": "parameterId",
-                                                                "label": "label",
-                                                                "deviceId": "deviceId",
-                                        }]}]}],
-                            "datumConversions": [],
-                            "version": 2,
-                            },
+                    "data": {
+                        "location": {"coordinates": [-123.711083, 38.914556, 0.0]},
+                        "id": 106793,
+                        "figures": [
+                            {
+                                "label": "label",
+                                "parameterGroupId": "parameterGroupId",
+                                "plots": [
+                                    {
+                                        "subPlots": [
+                                            {
+                                                "datasetVariableId": "datasetVariableId",
+                                                "parameterId": "parameterId",
+                                                "label": "label",
+                                                "deviceId": "deviceId",
+                                            }
+                                        ]
+                                    }
+                                ],
+                            }
+                        ],
+                        "datumConversions": [],
+                        "version": 2,
                     },
+                },
                 {
                     "uuid": "test_platform_csv",
                     "label": "test_label",
@@ -119,18 +131,30 @@ class FakeResponse(object):
                             "data.csv.gz": {"url": "fake.csv.gz"},
                         },
                     },
-                    "data": {"location": {"coordinates": [-123.711083, 38.914556, 0.0]},
-                            "id": 106793,
-                            "figures": [{"label": "label",
-                                        "parameterGroupId": "parameterGroupId",
-                                        "plots": [{"subPlots": [{"datasetVariableId": "datasetVariableId",
-                                                                "parameterId": "parameterId",
-                                                                "label": "label",
-                                                                "deviceId": "deviceId",
-                                        }]}]}],
-                            "datumConversions": [],
-                            "version": 2,
-                            },
+                    "data": {
+                        "location": {"coordinates": [-123.711083, 38.914556, 0.0]},
+                        "id": 106793,
+                        "figures": [
+                            {
+                                "label": "label",
+                                "parameterGroupId": "parameterGroupId",
+                                "plots": [
+                                    {
+                                        "subPlots": [
+                                            {
+                                                "datasetVariableId": "datasetVariableId",
+                                                "parameterId": "parameterId",
+                                                "label": "label",
+                                                "deviceId": "deviceId",
+                                            }
+                                        ]
+                                    }
+                                ],
+                            }
+                        ],
+                        "datumConversions": [],
+                        "version": 2,
+                    },
                 },
             ]
         }
@@ -187,14 +211,14 @@ class FakeResponseSalt(object):
                                     },
                                 },
                             },
-                            },
-                            # "variables": {"lon": "lon", "time": "time"},
+                        },
+                        # "variables": {"lon": "lon", "time": "time"},
                         "files": {
                             "data.csv.gz": {"url": "fake.csv.gz"},
                             "data.viz.parquet": {"url": "fake.parquet"},
                         },
                     },
-                    },
+                },
             ]
         }
         return res
@@ -223,7 +247,7 @@ class FakeResponseSalt(object):
 
 def test_intake_opener():
     assert "open_axds_cat" in intake.openers
-    
+
 
 @mock.patch("requests.get")
 def test_platform_dataframe(mock_requests):
@@ -274,11 +298,15 @@ def test_platform_search_for(mock_requests):
 
     cat = AXDSCatalog(datatype="platform2", kwargs_search=kw)
     assert "&query=whale" in cat.get_search_urls()[0]
-    
+
     # use direct keywords to get the same catalog
-    cat2 = AXDSCatalog(datatype="platform2", start_time=kw["min_time"], end_time=kw["max_time"],
-                       bbox=(kw["min_lon"], kw["min_lat"], kw["max_lon"], kw["max_lat"]),
-                       search_for=kw["search_for"])
+    cat2 = AXDSCatalog(
+        datatype="platform2",
+        start_time=kw["min_time"],
+        end_time=kw["max_time"],
+        bbox=(kw["min_lon"], kw["min_lat"], kw["max_lon"], kw["max_lat"]),
+        search_for=kw["search_for"],
+    )
     assert cat.metadata["kwargs_search"] == cat2.metadata["kwargs_search"]
 
 
@@ -363,9 +391,12 @@ def test_platform_search_variable_std_name_query_type_union(mock_requests):
         query_type="union",
     )
     assert list(cat) == ["test_platform_parquet", "test_platform_csv"]
-    search_urls = ['https://search.axds.co/v2/search?portalId=-1&page=1&pageSize=10&verbose=true&type=platform2&tag=Parameter+Group:Salinity', 'https://search.axds.co/v2/search?portalId=-1&page=1&pageSize=10&verbose=true&type=platform2&tag=Parameter+Group:Temperature: Water Temperature']
+    search_urls = [
+        "https://search.axds.co/v2/search?portalId=-1&page=1&pageSize=10&verbose=true&type=platform2&tag=Parameter+Group:Salinity",
+        "https://search.axds.co/v2/search?portalId=-1&page=1&pageSize=10&verbose=true&type=platform2&tag=Parameter+Group:Temperature: Water Temperature",
+    ]
     assert cat.get_search_urls() == search_urls
-    
+
 
 @mock.patch("requests.get")
 def test_platform_search_variable_std_name_query_type_intersection(mock_requests):
@@ -385,7 +416,10 @@ def test_platform_search_variable_std_name_query_type_intersection(mock_requests
         query_type="intersection",
     )
     assert list(cat) == ["test_platform_parquet"]
-    search_urls = ['https://search.axds.co/v2/search?portalId=-1&page=1&pageSize=10&verbose=true&type=platform2&tag=Parameter+Group:Salinity', 'https://search.axds.co/v2/search?portalId=-1&page=1&pageSize=10&verbose=true&type=platform2&tag=Parameter+Group:Temperature: Water Temperature']
+    search_urls = [
+        "https://search.axds.co/v2/search?portalId=-1&page=1&pageSize=10&verbose=true&type=platform2&tag=Parameter+Group:Salinity",
+        "https://search.axds.co/v2/search?portalId=-1&page=1&pageSize=10&verbose=true&type=platform2&tag=Parameter+Group:Temperature: Water Temperature",
+    ]
     assert cat.get_search_urls() == search_urls
 
 
@@ -434,8 +468,8 @@ def test_invalid_kwarg_search():
 
 def test_invalid_datatype():
     with pytest.raises(KeyError):
-        AXDSCatalog(datatype="invalid")    
-    
+        AXDSCatalog(datatype="invalid")
+
 
 @mock.patch("requests.get")
 def test_verbose(mock_requests, capfd):
@@ -457,12 +491,14 @@ def test_no_results(mock_requests):
 def test_not_a_standard_name(mock_requests):
     with pytest.raises(ValueError):
         AXDSCatalog(datatype="sensor_station", standard_names="not_a_standard_name")
-    
+
 
 @mock.patch("requests.get")
-def test_sensor_search_variable_std_name_query_type_intersection_constrained(mock_requests):
+def test_sensor_search_variable_std_name_query_type_intersection_constrained(
+    mock_requests,
+):
     """Test catalog with variable search and query_types.
-    
+
     Not checking actual data return.
     """
 
@@ -480,5 +516,8 @@ def test_sensor_search_variable_std_name_query_type_intersection_constrained(moc
         query_type="intersection_constrained",
     )
     assert list(cat) == ["test_platform_parquet"]
-    search_urls = ['https://search.axds.co/v2/search?portalId=-1&page=1&pageSize=10&verbose=true&type=sensor_station&tag=Parameter+Group:Salinity', 'https://search.axds.co/v2/search?portalId=-1&page=1&pageSize=10&verbose=true&type=sensor_station&tag=Parameter+Group:Temperature: Water Temperature']
+    search_urls = [
+        "https://search.axds.co/v2/search?portalId=-1&page=1&pageSize=10&verbose=true&type=sensor_station&tag=Parameter+Group:Salinity",
+        "https://search.axds.co/v2/search?portalId=-1&page=1&pageSize=10&verbose=true&type=sensor_station&tag=Parameter+Group:Temperature: Water Temperature",
+    ]
     assert cat.get_search_urls() == search_urls

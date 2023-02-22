@@ -106,7 +106,7 @@ class AXDSSensorSource(base.DataSource):
                 raise ValueError(
                     "QARTOD is not available for binned output. Set QARTOD to False or use raw data."
                 )
-                
+
         metadata = metadata or {}
 
         # need dataset_id to get metadata
@@ -121,6 +121,7 @@ class AXDSSensorSource(base.DataSource):
         elif self.internal_id is None:
             assert self.dataset_id is not None
             res = response_from_url(make_search_docs_url(self.dataset_id))[0]
+            assert isinstance(res, dict)  # for mypy
             self.internal_id = res["id"]
             metadata["version"] = res["data"]["version"]
 
@@ -157,7 +158,7 @@ class AXDSSensorSource(base.DataSource):
         """
 
         filters = []
-        
+
         # if "version" not in self.metadata:
         #     res = response_from_url(make_search_docs_url(self.dataset_id))[0]
         #     self.metadata["version"] = res["data"]["version"]

@@ -37,6 +37,7 @@ def available_names() -> list:
     """
 
     resp = response_from_url(contexturl)
+    assert isinstance(resp, dict)  # for mypy
     params = resp["parameters"]
 
     # find parameterName options for AXDS. These are a superset of standard_names
@@ -67,6 +68,7 @@ def match_key_to_parameter(
     """
 
     resp = response_from_url(contexturl)
+    assert isinstance(resp, dict)  # for mypy
     params = resp["parameters"]
 
     # find parameterName options for AXDS. These are a superset of standard_names
@@ -109,6 +111,7 @@ def match_std_names_to_parameter(standard_names: list) -> list:
     """
 
     resp = response_from_url(contexturl)
+    assert isinstance(resp, dict)  # for mypy
     params = resp["parameters"]
 
     names = [i["parameterName"] for i in params]
