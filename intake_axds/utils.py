@@ -152,7 +152,7 @@ def load_metadata(datatype: str, results: dict) -> dict:  #: Dict[str, str]
     dict
         Metadata to store with catalog entry.
     """
-
+    # import pdb; pdb.set_trace()
     # matching names in intake-erddap
     keys = ["datasetID", "title", "summary", "type", "minTime", "maxTime"]
     # names of keys in Axiom system.
