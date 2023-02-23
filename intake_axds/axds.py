@@ -120,27 +120,6 @@ class AXDSSensorSource(base.DataSource):
             self.uuid = metadata["uuid"]
             self.search_docs_url = url
 
-        # need dataset_id to get metadata
-        # or use UUID as another approach like if you have the dataset_id. Not sure why they are
-        # sometimes different
-        # if self.dataset_id is None or self.uuid is None:
-        #     assert self.internal_id is not None
-            # # this works but maybe better to match in the two cases
-            # result = response_from_url(make_metadata_url(make_filter(self.internal_id)))
-            # assert isinstance(result, dict)
-            # metadata.update(load_metadata("sensor_station", result))
-            # self.dataset_id = metadata["datasetID"]
-            # self.uuid = metadata["uuid"]
-
-        # # need internal_id to get data
-        # elif self.internal_id is None:
-        #     assert self.dataset_id is not None or self.uuid is not None
-        #     result = response_from_url(make_search_docs_url(self.dataset_id))[0]
-        #     assert isinstance(result, dict)  # for mypy
-        #     metadata.update(load_metadata("sensor_station", result))
-        #     self.internal_id = metadata["internal_id"]
-        #     self.uuid = metadata["uuid"]
-
         # not checking for now        
         # # check station for if we want the output or not — for when source is used directly.
         # _ = check_station(metadata, verbose=True)
@@ -248,8 +227,6 @@ class AXDSSensorSource(base.DataSource):
                     ]
                 ):
                     continue
-
-            # import pdb; pdb.set_trace()
 
             columns = {}  # all non-index columns in dataframe
             indices = {}  # indices for dataframe
