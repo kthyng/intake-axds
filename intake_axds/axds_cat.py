@@ -21,6 +21,7 @@ from .utils import (
     match_key_to_parameter,
     match_std_names_to_parameter,
     response_from_url,
+    check_station,
 )
 
 
@@ -441,20 +442,20 @@ class AXDSCatalog(Catalog):
         return combined_results
 
     def _load(self):
-        """Find all dataset ids and create catalog."""
+        """Find all UUIDs and create catalog."""
 
         results = self._load_all_results()
 
         self._entries = {}
         for result in results:
-            dataset_id = result["uuid"]
+            uuid = result["uuid"]
 
             # don't repeat an entry (it won't actually allow you to, but probably saves time not to try)
-            if dataset_id in self._entries:
+            if uuid in self._entries:
                 continue
 
             if self.verbose:
-                print(f"Dataset ID: {dataset_id}")
+                print(f"Dataset ID: {uuid}")
 
             # # quick check if OPENDAP is in the access methods for this uuid, otherwise move on
             # if self.datatype == "module":
@@ -476,14 +477,12 @@ class AXDSCatalog(Catalog):
             #             )
             #         continue
 
-            description = f"AXDS dataset_id {dataset_id} of datatype {self.datatype}"
+            description = f"AXDS dataset_id {uuid} of datatype {self.datatype}"
 
             metadata = load_metadata(self.datatype, result)
-
-            # don't save Camera sensor data for now
-            if "webcam" in metadata["variables"]:
-                if self.verbose:
-                    print(f"Dataset_id {dataset_id} is a webcam so is being skipped.")
+            
+            keep_station = check_station(metadata, verbose=self.verbose)
+            if not keep_station:
                 continue
 
             # Find urlpath
@@ -508,8 +507,8 @@ class AXDSCatalog(Catalog):
             # this Source has different arg requirements
             elif self.datatype == "sensor_station":
                 args = {
-                    "dataset_id": dataset_id,
                     "internal_id": metadata["internal_id"],
+                    "uuid": uuid,
                     "start_time": self.kwargs_search.get("min_time", None),
                     "end_time": self.kwargs_search.get("max_time", None),
                     # "kwargs_search": self.kwargs_search,
@@ -564,7 +563,7 @@ class AXDSCatalog(Catalog):
             #         urlpath = urlpaths[0]
 
             entry = LocalCatalogEntry(
-                name=dataset_id,
+                name=uuid,
                 description=description,
                 driver=plugin,
                 direct_access="allow",
@@ -582,4 +581,8 @@ class AXDSCatalog(Catalog):
 
             entry._plugin = [plugin]
 
-            self._entries[dataset_id] = entry
+            self._entries[uuid] = entry
+            
+        # final tally
+        if self.verbose:
+            print(f"Final number of stations found after removing some: {len(self._entries)}.")

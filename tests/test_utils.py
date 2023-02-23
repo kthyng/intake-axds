@@ -135,10 +135,15 @@ def test_parameters_and_std_names(mock_requests):
 
 
 def test_make_search_docs_url():
-    dataset_id = "test_id"
+    uuid = "test_id"
     assert (
-        f"https://search.axds.co/v2/docs?verbose=false&id={dataset_id}"
-        == utils.make_search_docs_url(dataset_id)
+        f"https://search.axds.co/v2/docs?verbose=false&id={uuid}"
+        == utils.make_search_docs_url(uuid=uuid)
+    )
+    internal_id = "test_internal_id"
+    assert (
+        f"https://search.axds.co/v2/docs?verbose=false&id=sensor_station:{internal_id}"
+        == utils.make_search_docs_url(internal_id=internal_id)
     )
 
 
@@ -195,32 +200,7 @@ def test_load_metadata():
         },
     }
     metadata = utils.load_metadata(datatype, results)
-    test_results = {
-        "datasetID": "uuid",
-        "title": "label",
-        "summary": "desc",
-        "type": "type",
-        "minTime": "2000-1-1",
-        "maxTime": "2000-1-2",
-        "minLongitude": -123.711083,
-        "minLatitude": 38.914556,
-        "maxLongitude": -123.711083,
-        "maxLatitude": 38.914556,
-        "internal_id": 106793,
-        "variables_details": {
-            "datasetVariableId": {
-                "parameterGroupLabel": "label",
-                "parameterGroupId": "parameterGroupId",
-                "datasetVariableId": "datasetVariableId",
-                "parameterId": "parameterId",
-                "label": "label",
-                "deviceId": "deviceId",
-            }
-        },
-        "variables": ["datasetVariableId"],
-        "metadata_url": "https://sensors.axds.co/api/metadata/filter/custom?filter=%7B%22stations%22:%5B%22106793%22%5D%7D",
-        "version": 2,
-    }
+    test_results = {'uuid': 'uuid', 'title': 'label', 'summary': 'desc', 'minTime': '2000-1-1', 'maxTime': '2000-1-2', 'minLongitude': -123.711083, 'minLatitude': 38.914556, 'maxLongitude': -123.711083, 'maxLatitude': 38.914556, 'internal_id': 106793, 'variables_details': [{'label': 'label', 'parameterGroupId': 'parameterGroupId', 'plots': [{'subPlots': [{'datasetVariableId': 'datasetVariableId', 'parameterId': 'parameterId', 'label': 'label', 'deviceId': 'deviceId'}]}]}], 'variables': ['datasetVariableId'], 'datumConversions': [], 'metadata_url': 'https://sensors.axds.co/api/metadata/filter/custom?filter=%7B%22stations%22:%5B%22106793%22%5D%7D', 'version': 2, 'foreignNames': []}
     assert metadata == test_results
 
     datatype = "platform2"
@@ -252,28 +232,5 @@ def test_load_metadata():
         },
     }
     metadata = utils.load_metadata(datatype, results)
-    test_results = {
-        "datasetID": "uuid",
-        "title": "label",
-        "summary": "desc",
-        "type": "type",
-        "minTime": "2000-1-1",
-        "maxTime": "2000-1-2",
-        "institution": "institution",
-        "geospatial_bounds": "POLYGON ((0 -80, 0 90, 359.9200439453125 90, 359.9200439453125 -80, 0 -80))",
-        "minLongitude": 0.0,
-        "minLatitude": -80.0,
-        "maxLongitude": 359.9200439453125,
-        "maxLatitude": 90.0,
-        "variables_details": {
-            "standard_name": {
-                "variable_name": "variable_name",
-                "units": "units",
-                "unit_id": "unit_id",
-                "long_name": "long_name",
-                "parameter_id": "parameter_id",
-            }
-        },
-        "variables": ["standard_name"],
-    }
+    test_results = {'uuid': 'uuid', 'title': 'label', 'summary': 'desc', 'minTime': '2000-1-1', 'maxTime': '2000-1-2', 'institution': ['institution'], 'geospatial_bounds': 'POLYGON ((0 -80, 0 90, 359.9200439453125 90, 359.9200439453125 -80, 0 -80))', 'minLongitude': 0.0, 'minLatitude': -80.0, 'maxLongitude': 359.9200439453125, 'maxLatitude': 90.0, 'variables_details': [{'variable_name': {'attributes': {'standard_name': 'standard_name', 'units': 'units', 'unit_id': 'unit_id', 'long_name': 'long_name', 'parameter_id': 'parameter_id'}}}], 'variables': ['standard_name']}
     assert metadata == test_results

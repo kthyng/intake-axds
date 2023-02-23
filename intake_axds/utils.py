@@ -3,6 +3,7 @@
 from importlib.metadata import PackageNotFoundError, version
 from operator import itemgetter
 from typing import Optional, Union
+from nested_lookup import nested_lookup
 
 import cf_pandas as cfp
 import pandas as pd
@@ -155,91 +156,136 @@ def load_metadata(datatype: str, results: dict) -> dict:  #: Dict[str, str]
     dict
         Metadata to store with catalog entry.
     """
-    # matching names in intake-erddap
-    keys = ["datasetID", "title", "summary", "type", "minTime", "maxTime"]
-    # names of keys in Axiom system.
-    items = [
-        "uuid",
-        "label",
-        "description",
-        "type",
-        "start_date_time",
-        "end_date_time",
-    ]
-    values = itemgetter(*items)(results)
-    metadata = dict(zip(keys, values))
+
+    # mostly matching names in intake-erddap
+    metadata = {}
+    keys = ["uuid", "label", "description"]
+    new_names = ["uuid", "title", "summary"]
+    # keys = ["datasetID", "title", "summary"]#, "minTime", "maxTime"]
+    for new_name, key in zip(new_names, keys):
+        found = [value for value in nested_lookup(key, results) if value is not None]
+        if len(found) > 0:
+            metadata[new_name] = found[0]  # take first instance
+    
+    new_name = "minTime"
+    found = nested_lookup('start', results, wild=True, with_keys=True)
+    for key, values in found.items():
+        if values == [None]:
+            continue
+        if len(values) == 1:
+            metadata[new_name] = values[0]
+        elif len(values) > 1:
+            metadata[new_name] = min(values)
+    
+    new_name = "maxTime"
+    found = nested_lookup('end', results, wild=True, with_keys=True)
+    for key, values in found.items():
+        if values == [None]:
+            continue
+        if len(values) == 1:
+            metadata[new_name] = values[0]
+        elif len(values) > 1:
+            metadata[new_name] = min(values)
+
+    # # matching names in intake-erddap
+    # keys = ["datasetID", "title", "summary", "type", "minTime", "maxTime"]
+    # # names of keys in Axiom system.
+    # items = [
+    #     "uuid",
+    #     "label",
+    #     "description",
+    #     "type",
+    #     "start_date_time",
+    #     "end_date_time",
+    # ]
+    # values = itemgetter(*items)(results)
+    # metadata = dict(zip(keys, values))
 
     if datatype == "platform2":
-        metadata["institution"] = (
-            results["source"]["meta"]["attributes"]["institution"]
-            if "institution" in results["source"]["meta"]["attributes"]
-            else None
-        )
-        metadata["geospatial_bounds"] = results["source"]["meta"]["attributes"][
-            "geospatial_bounds"
-        ]
+        # import pdb; pdb.set_trace()
+        metadata["institution"] = nested_lookup("institution", results)
+        metadata["geospatial_bounds"] = nested_lookup("geospatial_bounds", results)[0]
+        
+        # metadata["institution"] = (
+        #     results["source"]["meta"]["attributes"]["institution"]
+        #     if "institution" in results["source"]["meta"]["attributes"]
+        #     else None
+        # )
+        # metadata["geospatial_bounds"] = results["source"]["meta"]["attributes"][
+        #     "geospatial_bounds"
+        # ]
 
         p1 = wkt.loads(metadata["geospatial_bounds"])
         keys = ["minLongitude", "minLatitude", "maxLongitude", "maxLatitude"]
         metadata.update(dict(zip(keys, p1.bounds)))
+        
+        metadata["variables_details"] = nested_lookup('variables', results)
+        metadata["variables"] = nested_lookup("standard_name", results)
 
-        # save variable details if they have a standard_name
-        # some platforms have lots of variables that seem irrelevant
-        out = {
-            attrs["attributes"]["standard_name"]: {
-                "variable_name": varname,
-                "units": attrs["attributes"]["units"]
-                if "units" in attrs["attributes"]
-                else None,
-                "unit_id": attrs["attributes"]["unit_id"]
-                if "unit_id" in attrs["attributes"]
-                else None,
-                "long_name": attrs["attributes"]["long_name"],
-                "parameter_id": attrs["attributes"]["parameter_id"]
-                if "parameter_id" in attrs["attributes"]
-                else None,
-            }
-            for varname, attrs in results["source"]["meta"]["variables"].items()
-            if "standard_name" in attrs["attributes"]
-        }
+        # # save variable details if they have a standard_name
+        # # some platforms have lots of variables that seem irrelevant
+        # out = {
+        #     attrs["attributes"]["standard_name"]: {
+        #         "variable_name": varname,
+        #         "units": attrs["attributes"]["units"]
+        #         if "units" in attrs["attributes"]
+        #         else None,
+        #         "unit_id": attrs["attributes"]["unit_id"]
+        #         if "unit_id" in attrs["attributes"]
+        #         else None,
+        #         "long_name": attrs["attributes"]["long_name"],
+        #         "parameter_id": attrs["attributes"]["parameter_id"]
+        #         if "parameter_id" in attrs["attributes"]
+        #         else None,
+        #     }
+        #     for varname, attrs in results["source"]["meta"]["variables"].items()
+        #     if "standard_name" in attrs["attributes"]
+        # }
 
-        metadata["variables_details"] = out
-        metadata["variables"] = list(out.keys())
+        # metadata["variables_details"] = out
+        # metadata["variables"] = list(out.keys())
 
     elif datatype == "sensor_station":
+        
+        lon, lat, depth = nested_lookup('location', results)[0]["coordinates"]
 
-        # INSTITUTION?
-        # location is lon, lat, depth and type
-        # e.g. {'coordinates': [-123.711083, 38.914556, 0.0], 'type': 'Point'}
-        lon, lat, depth = results["data"]["location"]["coordinates"]
+        # # location is lon, lat, depth and type
+        # # e.g. {'coordinates': [-123.711083, 38.914556, 0.0], 'type': 'Point'}
+        # lon, lat, depth = results["data"]["location"]["coordinates"]
         keys = ["minLongitude", "minLatitude", "maxLongitude", "maxLatitude"]
         metadata.update(dict(zip(keys, [lon, lat, lon, lat])))
 
-        # e.g. 106793
-        metadata["internal_id"] = results["data"]["id"]
+        metadata["internal_id"] = int([value for value in nested_lookup('id', results) if value is not None][0])
+        # # e.g. 106793
+        # metadata["internal_id"] = results["data"]["id"]
+        
+        metadata["variables_details"] = nested_lookup('figures', results)[0]
+        metadata["variables"] = list(set(nested_lookup('datasetVariableId', results)))
 
-        # variables, standard_names (or at least parameterNames)
-        figs = results["data"]["figures"]
+        # # variables, standard_names (or at least parameterNames)
+        # figs = results["data"]["figures"]
 
-        out = {
-            subPlot["datasetVariableId"]: {
-                "parameterGroupLabel": fig["label"],
-                "parameterGroupId": fig["parameterGroupId"],
-                "datasetVariableId": subPlot["datasetVariableId"],
-                "parameterId": subPlot["parameterId"],
-                "label": subPlot["label"],
-                "deviceId": subPlot["deviceId"],
-            }
-            for fig in figs
-            for plot in fig["plots"]
-            for subPlot in plot["subPlots"]
-        }
-        metadata["variables_details"] = out
-        metadata["variables"] = list(out.keys())
+        # out = {
+        #     subPlot["datasetVariableId"]: {
+        #         "parameterGroupLabel": fig["label"],
+        #         "parameterGroupId": fig["parameterGroupId"],
+        #         "datasetVariableId": subPlot["datasetVariableId"],
+        #         "parameterId": subPlot["parameterId"],
+        #         "label": subPlot["label"],
+        #         "deviceId": subPlot["deviceId"],
+        #     }
+        #     for fig in figs
+        #     for plot in fig["plots"]
+        #     for subPlot in plot["subPlots"]
+        # }
+        # metadata["variables_details"] = out
+        # metadata["variables"] = list(out.keys())
+        
+        metadata["datumConversions"] = nested_lookup('datumConversions', results)[0]
 
-        # include datumConversion info if present
-        if len(results["data"]["datumConversions"]) > 0:
-            metadata["datumConversions"] = results["data"]["datumConversions"]
+        # # include datumConversion info if present
+        # if len(results["data"]["datumConversions"]) > 0:
+        #     metadata["datumConversions"] = results["data"]["datumConversions"]
 
         filter = f"%7B%22stations%22:%5B%22{metadata['internal_id']}%22%5D%7D"
         baseurl = "https://sensors.axds.co/api"
@@ -249,9 +295,47 @@ def load_metadata(datatype: str, results: dict) -> dict:  #: Dict[str, str]
         # also save units here
 
         # 1 or 2?
-        metadata["version"] = results["data"]["version"]
+        metadata["version"] = nested_lookup('version', results)[0]
+        # metadata["version"] = results["data"]["version"]
+        
+        # name on other sites, esp for ERDDAP
+        metadata["foreignNames"] = list(set(nested_lookup('foreignName', results, wild=True)))
+        # metadata["foreignNames"] = [aff["~foreignName"] for aff in results["data"]["affiliations"] if aff["~foreignName"] is not None]
 
     return metadata
+
+
+def check_station(metadata: dict, verbose: bool) -> bool:
+    """Whether to keep station or not.
+
+    Parameters
+    ----------
+    metadata : dict
+        metadata about station.
+    verbose : bool, optional
+        Set to True for helpful information.
+
+    Returns
+    -------
+    bool
+        True to keep station, False to skip.
+    """
+
+    keep = True
+    # don't save Camera sensor data for now
+    if "webcam" in metadata["variables"]:
+        keep = False
+        if verbose:
+            print(f"UUID {metadata['uuid']} is a webcam and should be skipped.")
+    
+    # these are IOOS ERDDAP and were setup to be different stations so we can see which stations 
+    # are successfully being served through IOOS RAs. It duplicates the data (purposely)
+    elif "ism-" in metadata["uuid"]:
+        keep = False
+        if verbose:
+            print(f"UUID {metadata['uuid']} is a duplicate station from IOOS and should be skipped.")
+
+    return keep
 
 
 def make_label(label: str, units: Optional[str] = None, use_units: bool = True) -> str:
@@ -284,7 +368,7 @@ def make_filter(internal_id: int, parameterGroupId: Optional[int] = None) -> str
     Parameters
     ----------
     internal_id : int
-        internal id for station. Not the dataset_id or uuid.
+        internal id for station. Not the uuid.
     parameterGroupId : Optional[int], optional
         Parameter Group ID to narrow search, by default None
 
@@ -359,20 +443,27 @@ def make_metadata_url(filter: str) -> str:
     return f"{baseurl}/metadata/filter/custom?filter={filter}"
 
 
-def make_search_docs_url(dataset_id: str) -> str:
+def make_search_docs_url(internal_id: Optional[int] = None, uuid: Optional[str] = None) -> str:
     """Url for Axiom Search docs.
+    
+    Uses whichever of internal_id and uuid is not None to formulate url.
 
     Parameters
     ----------
-    dataset_id : str
-        dataset_id or uuid.
+    internal_id : Optional[int], optional
+        Internal station id for Axiom. Not the UUID.
+    uuid : str
+        uuid for station.
 
     Returns
     -------
     str
         Url for finding Axiom Search docs
     """
-    return f"https://search.axds.co/v2/docs?verbose=false&id={dataset_id}"
+    if internal_id is not None:
+        return f"https://search.axds.co/v2/docs?verbose=false&id=sensor_station:{internal_id}"
+    elif uuid is not None:
+        return f"https://search.axds.co/v2/docs?verbose=false&id={uuid}"
 
 
 def response_from_url(url: str) -> Union[list, dict]:
