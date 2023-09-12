@@ -8,6 +8,7 @@ dependencies:
    - aiohttp
    - cf_pandas
    - h5netcdf
+   - nested_lookup
    - pandas
    - requests
    - shapely
