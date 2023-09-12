@@ -5,14 +5,15 @@ dependencies:
   - python=3.8
   ############## These will have to be adjusted to your specific project
   - cf_pandas
-  - nested_lookup
   - pandas
   - requests
   - shapely
   ##############
+  - pip
   - pytest
   - pip:
     - codecov
+    - nested_lookup
     - pytest-cov
     - coverage[toml]
     - git+https://github.com/intake/intake

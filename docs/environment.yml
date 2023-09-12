@@ -8,7 +8,6 @@ dependencies:
    - aiohttp
    - cf_pandas
    - h5netcdf
-   - nested_lookup
    - pandas
    - requests
    - shapely
@@ -30,6 +29,7 @@ dependencies:
      - intake-parquet
      - intake-xarray
      - intake-axds
+     - nested_lookup
     #  - "dask[complete]"
      - docrep<=0.2.7
      - furo
