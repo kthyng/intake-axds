@@ -5,6 +5,9 @@ dependencies:
   - python=3.8
   ############## These will have to be adjusted to your specific project
   - cf_pandas
+  - intake
+  - intake-parquet
+  - intake-xarray
   - pandas
   - requests
   - shapely
@@ -16,7 +19,4 @@ dependencies:
     - nested_lookup
     - pytest-cov
     - coverage[toml]
-    - intake
-    - intake-parquet
-    - intake-xarray
     # - "dask[complete]"
