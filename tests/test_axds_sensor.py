@@ -129,7 +129,8 @@ class FakeResponseSearchDocsV1(object):
 
 
 def test_intake_opener():
-    assert "open_axds_sensor" in intake.openers
+    # intake.openers isn't available anymore
+    assert "open_axds_sensor" in intake.__dir__()
 
 
 def test_binned():

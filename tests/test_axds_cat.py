@@ -246,7 +246,8 @@ class FakeResponseSalt(object):
 
 
 def test_intake_opener():
-    assert "open_axds_cat" in intake.openers
+    # intake.openers isn't available anymore
+    assert "open_axds_cat" in intake.__dir__()
 
 
 @mock.patch("requests.get")
