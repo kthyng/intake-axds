@@ -6,12 +6,10 @@ from intake.source import base
 
 from . import __version__
 from .utils import (
-    check_station,
     load_metadata,
     make_data_url,
     make_filter,
     make_label,
-    make_metadata_url,
     make_search_docs_url,
     response_from_url,
 )
@@ -120,7 +118,7 @@ class AXDSSensorSource(base.DataSource):
             self.uuid = metadata["uuid"]
             self.search_docs_url = url
 
-        # not checking for now        
+        # not checking for now
         # # check station for if we want the output or not — for when source is used directly.
         # _ = check_station(metadata, verbose=True)
 

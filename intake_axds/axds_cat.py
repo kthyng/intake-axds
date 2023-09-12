@@ -17,11 +17,11 @@ from intake_parquet.source import ParquetSource
 from . import __version__
 from .axds import AXDSSensorSource
 from .utils import (
+    check_station,
     load_metadata,
     match_key_to_parameter,
     match_std_names_to_parameter,
     response_from_url,
-    check_station,
 )
 
 
@@ -480,7 +480,7 @@ class AXDSCatalog(Catalog):
             description = f"AXDS dataset_id {uuid} of datatype {self.datatype}"
 
             metadata = load_metadata(self.datatype, result)
-            
+
             keep_station = check_station(metadata, verbose=self.verbose)
             if not keep_station:
                 continue
@@ -582,7 +582,9 @@ class AXDSCatalog(Catalog):
             entry._plugin = [plugin]
 
             self._entries[uuid] = entry
-            
+
         # final tally
         if self.verbose:
-            print(f"Final number of stations found after removing some: {len(self._entries)}.")
+            print(
+                f"Final number of stations found after removing some: {len(self._entries)}."
+            )

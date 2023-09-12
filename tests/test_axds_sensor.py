@@ -133,9 +133,7 @@ def test_intake_opener():
 
 
 def test_binned():
-    source = AXDSSensorSource(
-        internal_id=123456, uuid="test", bin_interval="monthly"
-    )
+    source = AXDSSensorSource(internal_id=123456, uuid="test", bin_interval="monthly")
     assert source.binned
 
 
@@ -158,13 +156,9 @@ def test_ids(mock_requests):
 
 def test_times():
     # doesn't need response because both internal_id and dataset_id are faked upon init
-    source = AXDSSensorSource(
-        internal_id=123456, uuid="fake", start_time="2000-1-1"
-    )
+    source = AXDSSensorSource(internal_id=123456, uuid="fake", start_time="2000-1-1")
     assert source.end_time is None
-    source = AXDSSensorSource(
-        internal_id=123456, uuid="fake", end_time="2000-1-1"
-    )
+    source = AXDSSensorSource(internal_id=123456, uuid="fake", end_time="2000-1-1")
     assert source.start_time is None
 
 

@@ -1,14 +1,13 @@
 """Utils to run."""
 
 from importlib.metadata import PackageNotFoundError, version
-from operator import itemgetter
 from typing import Optional, Union
-from nested_lookup import nested_lookup
 
 import cf_pandas as cfp
 import pandas as pd
 import requests
 
+from nested_lookup import nested_lookup
 from shapely import wkt
 
 
@@ -159,20 +158,20 @@ def load_metadata(datatype: str, results: dict) -> dict:  #: Dict[str, str]
         found = [value for value in nested_lookup(key, results) if value is not None]
         if len(found) > 0:
             metadata[new_name] = found[0]  # take first instance
-    
+
     new_name = "minTime"
-    found = nested_lookup('start', results, wild=True, with_keys=True)
-    for key, values in found.items():
+    found_dict = nested_lookup("start", results, wild=True, with_keys=True)
+    for key, values in found_dict.items():
         if values == [None]:
             continue
         if len(values) == 1:
             metadata[new_name] = values[0]
         elif len(values) > 1:
             metadata[new_name] = min(values)
-    
+
     new_name = "maxTime"
-    found = nested_lookup('end', results, wild=True, with_keys=True)
-    for key, values in found.items():
+    found_dict = nested_lookup("end", results, wild=True, with_keys=True)
+    for key, values in found_dict.items():
         if values == [None]:
             continue
         if len(values) == 1:
@@ -187,25 +186,27 @@ def load_metadata(datatype: str, results: dict) -> dict:  #: Dict[str, str]
         p1 = wkt.loads(metadata["geospatial_bounds"])
         keys = ["minLongitude", "minLatitude", "maxLongitude", "maxLatitude"]
         metadata.update(dict(zip(keys, p1.bounds)))
-        
-        metadata["variables_details"] = nested_lookup('variables', results)
+
+        metadata["variables_details"] = nested_lookup("variables", results)
         metadata["variables"] = nested_lookup("standard_name", results)
 
     elif datatype == "sensor_station":
-        
+
         # location is lon, lat, depth and type
         # e.g. {'coordinates': [-123.711083, 38.914556, 0.0], 'type': 'Point'}
-        lon, lat, depth = nested_lookup('location', results)[0]["coordinates"]
+        lon, lat, depth = nested_lookup("location", results)[0]["coordinates"]
         keys = ["minLongitude", "minLatitude", "maxLongitude", "maxLatitude"]
         metadata.update(dict(zip(keys, [lon, lat, lon, lat])))
 
         # e.g. 106793
-        metadata["internal_id"] = int([value for value in nested_lookup('id', results) if value is not None][0])
-        
-        metadata["variables_details"] = nested_lookup('figures', results)[0]
-        metadata["variables"] = list(set(nested_lookup('datasetVariableId', results)))
-        
-        metadata["datumConversions"] = nested_lookup('datumConversions', results)[0]
+        metadata["internal_id"] = int(
+            [value for value in nested_lookup("id", results) if value is not None][0]
+        )
+
+        metadata["variables_details"] = nested_lookup("figures", results)[0]
+        metadata["variables"] = list(set(nested_lookup("datasetVariableId", results)))
+
+        metadata["datumConversions"] = nested_lookup("datumConversions", results)[0]
 
         filter = f"%7B%22stations%22:%5B%22{metadata['internal_id']}%22%5D%7D"
         baseurl = "https://sensors.axds.co/api"
@@ -213,10 +214,12 @@ def load_metadata(datatype: str, results: dict) -> dict:  #: Dict[str, str]
         metadata["metadata_url"] = metadata_url
 
         # 1 or 2?
-        metadata["version"] = nested_lookup('version', results)[0]
-        
+        metadata["version"] = nested_lookup("version", results)[0]
+
         # name on other sites, esp for ERDDAP
-        metadata["foreignNames"] = list(set(nested_lookup('foreignName', results, wild=True)))
+        metadata["foreignNames"] = list(
+            set(nested_lookup("foreignName", results, wild=True))
+        )
 
     return metadata
 
@@ -243,13 +246,15 @@ def check_station(metadata: dict, verbose: bool) -> bool:
         keep = False
         if verbose:
             print(f"UUID {metadata['uuid']} is a webcam and should be skipped.")
-    
-    # these are IOOS ERDDAP and were setup to be different stations so we can see which stations 
+
+    # these are IOOS ERDDAP and were setup to be different stations so we can see which stations
     # are successfully being served through IOOS RAs. It duplicates the data (purposely)
     elif "ism-" in metadata["uuid"]:
         keep = False
         if verbose:
-            print(f"UUID {metadata['uuid']} is a duplicate station from IOOS and should be skipped.")
+            print(
+                f"UUID {metadata['uuid']} is a duplicate station from IOOS and should be skipped."
+            )
 
     return keep
 
@@ -359,9 +364,11 @@ def make_metadata_url(filter: str) -> str:
     return f"{baseurl}/metadata/filter/custom?filter={filter}"
 
 
-def make_search_docs_url(internal_id: Optional[int] = None, uuid: Optional[str] = None) -> str:
+def make_search_docs_url(
+    internal_id: Optional[int] = None, uuid: Optional[str] = None
+) -> str:
     """Url for Axiom Search docs.
-    
+
     Uses whichever of internal_id and uuid is not None to formulate url.
 
     Parameters
@@ -380,6 +387,8 @@ def make_search_docs_url(internal_id: Optional[int] = None, uuid: Optional[str] 
         return f"https://search.axds.co/v2/docs?verbose=false&id=sensor_station:{internal_id}"
     elif uuid is not None:
         return f"https://search.axds.co/v2/docs?verbose=false&id={uuid}"
+    else:
+        raise KeyError("Correct key was not input for return")
 
 
 def response_from_url(url: str) -> Union[list, dict]:
