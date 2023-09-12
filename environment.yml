@@ -8,12 +8,13 @@ dependencies:
   - aiohttp
   - cf_pandas
   - h5netcdf
+  - intake
+  - intake-parquet
+  - intake-xarray
   - pandas
   - pip
   - requests
   - shapely
   - pip:
-    - git+https://github.com/intake/intake
-    - intake-parquet
-    - intake-xarray
+    - nested_lookup
     # - "dask[complete]"

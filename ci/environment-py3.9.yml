@@ -9,12 +9,14 @@ dependencies:
   - requests
   - shapely
   ##############
+  - pip
   - pytest
   - pip:
     - codecov
+    - nested_lookup
     - pytest-cov
     - coverage[toml]
-    - git+https://github.com/intake/intake
+    - intake
     - intake-parquet
     - intake-xarray
     # - "dask[complete]"

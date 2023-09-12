@@ -29,6 +29,7 @@ dependencies:
      - intake-parquet
      - intake-xarray
      - intake-axds
+     - nested_lookup
     #  - "dask[complete]"
      - docrep<=0.2.7
      - furo

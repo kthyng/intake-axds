@@ -10,7 +10,6 @@ from .utils import (
     make_data_url,
     make_filter,
     make_label,
-    make_metadata_url,
     make_search_docs_url,
     response_from_url,
 )
@@ -22,9 +21,9 @@ class AXDSSensorSource(base.DataSource):
     Parameters
     ----------
     internal_id : Optional[int], optional
-        Internal station id for Axiom, by default None. Not the UUID or dataset_id. Need to input internal_id or dataset_id. If both are input, be sure they are for the same station.
-    dataset_id : Optional[str], optional
-        The UUID for the station, by default None. Not the internal_id. Need to input internal_id or dataset_id. If both are input, be sure they are for the same station.
+        Internal station id for Axiom, by default None. Not the UUID. Need to input internal_id or UUID. If both are input, be sure they are for the same station.
+    uuid : Optional[str], optional
+        The UUID for the station, by default None. Not the internal_id. Need to input internal_id or UUID. If both are input, be sure they are for the same station. Note that there may also be a "datasetId" parameter which is sometimes but not always the same as the UUID.
     start_time : Optional[str], optional
         At what datetime for data to start, by default None. Must be interpretable by pandas ``Timestamp``. If not input, the datetime at which the dataset starts will be used.
     end_time : Optional[str], optional
@@ -72,7 +71,7 @@ class AXDSSensorSource(base.DataSource):
     def __init__(
         self,
         internal_id: Optional[int] = None,
-        dataset_id: Optional[str] = None,
+        uuid: Optional[str] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
         qartod: Union[int, List[int], bool] = False,
@@ -83,12 +82,12 @@ class AXDSSensorSource(base.DataSource):
         only_pgids: Optional[List[int]] = None,
     ):
 
-        if internal_id is None and dataset_id is None:
+        if internal_id is None and uuid is None:
             raise ValueError(
-                "internal_id and dataset_id cannot both be None. Input one of them."
+                "internal_id and uuid cannot both be None. Input one of them."
             )
 
-        self.dataset_id = dataset_id
+        self.uuid = uuid
         self.start_time = start_time
         self.end_time = end_time
         self.internal_id = internal_id
@@ -109,31 +108,27 @@ class AXDSSensorSource(base.DataSource):
 
         metadata = metadata or {}
 
-        # need dataset_id to get metadata
-        if self.dataset_id is None:
-            assert self.internal_id is not None
-            res = response_from_url(make_metadata_url(make_filter(self.internal_id)))
-            assert isinstance(res, dict)
-            self.dataset_id = res["data"]["stations"][0]["uuid"]
-            metadata["version"] = res["data"]["stations"][0]["version"]
+        if self.internal_id is None or self.uuid is None:
+            # uses whichever id is not None
+            url = make_search_docs_url(internal_id=self.internal_id, uuid=self.uuid)
+            result = response_from_url(url)[0]
+            assert isinstance(result, dict)  # for mypy
+            metadata.update(load_metadata("sensor_station", result))
+            self.internal_id = metadata["internal_id"]
+            self.uuid = metadata["uuid"]
+            self.search_docs_url = url
 
-        # need internal_id to get data
-        elif self.internal_id is None:
-            assert self.dataset_id is not None
-            res = response_from_url(make_search_docs_url(self.dataset_id))[0]
-            assert isinstance(res, dict)  # for mypy
-            self.internal_id = res["id"]
-            metadata["version"] = res["data"]["version"]
+        # not checking for now
+        # # check station for if we want the output or not — for when source is used directly.
+        # _ = check_station(metadata, verbose=True)
 
         self._dataframe = None
-
-        metadata["dataset_id"] = self.dataset_id
 
         # this is what shows in the source if you print it
         self._captured_init_kwargs.update(
             {
                 "internal_id": self.internal_id,
-                "dataset_id": self.dataset_id,
+                "uuid": self.uuid,
                 "start_time": self.start_time,
                 "end_time": self.end_time,
                 "qartod": self.qartod,
@@ -230,8 +225,6 @@ class AXDSSensorSource(base.DataSource):
                     ]
                 ):
                     continue
-
-            # import pdb; pdb.set_trace()
 
             columns = {}  # all non-index columns in dataframe
             indices = {}  # indices for dataframe
@@ -358,7 +351,7 @@ class AXDSSensorSource(base.DataSource):
         if not hasattr(self, "_data_urls"):
 
             # get extended metadata which we need both for reading the data and as metadata
-            result = response_from_url(make_search_docs_url(self.dataset_id))[0]
+            result = response_from_url(make_search_docs_url(uuid=self.uuid))[0]
             self.metadata.update(load_metadata("sensor_station", result))
 
             start_time = self.start_time or self.metadata["minTime"]
@@ -374,7 +367,7 @@ class AXDSSensorSource(base.DataSource):
         return self._data_urls
 
     def _load(self):
-        """How to load in a specific station once you know it by dataset_id"""
+        """How to load in a specific station once you know it by uuid"""
 
         dfs = [self._load_to_dataframe(url) for url in self.data_urls]
 
