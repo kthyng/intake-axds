@@ -5,6 +5,8 @@ dependencies:
   - python=3.9
   ############## These will have to be adjusted to your specific project
   - cf_pandas
+  # - intake
+  - jinja2
   - pandas
   - requests
   - shapely
